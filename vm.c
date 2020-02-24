@@ -26,7 +26,7 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 	if(blen == 0) return E_VM_STATUS_EOF;
 
 	do {
-		printf("** IP: %d **\n", vm->ip);
+		printf("** IP: %d ** ", vm->ip);
 
 		e_instr cur_instr;
 		uint32_t ip_begin = vm->ip;
@@ -109,7 +109,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s1.val.val == s2.val.val));
+				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val == s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_LT:
@@ -117,7 +117,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s1.val.val < s2.val.val));
+				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val < s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_GT:
@@ -125,7 +125,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s1.val.val > s2.val.val));
+				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val > s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_LTEQ:
@@ -133,7 +133,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s1.val.val <= s2.val.val));
+				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val <= s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_GTEQ:
@@ -141,7 +141,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s1.val.val >= s2.val.val));
+				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val >= s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_ADD:
@@ -149,7 +149,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number(s1.val.val + s2.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val + s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_SUB:
@@ -158,7 +158,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number(s1.val.val - s2.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val - s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_MUL:
@@ -167,7 +167,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number(s1.val.val * s2.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val * s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_DIV:
@@ -185,7 +185,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s1.val.val && s2.val.val));
+				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val && s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_OR:
@@ -194,7 +194,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s1.val.val || s2.val.val));
+				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val || s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_NOT:
@@ -205,6 +205,17 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			} else goto error;
 			break;
 		case E_OP_JZ:
+			// POP s[-1]
+			// if(s[-1] == 0) then perform_jump()
+			s1 = e_stack_pop(&vm->stack);
+			if(s1.status == E_STATUS_OK) {
+				if(s1.val.val == 0) {
+					printf("is zero, perform jump to address [%d]\n", instr.op1 * E_INSTR_BYTES);
+					// Perform jump
+					vm->ip = instr.op1 * E_INSTR_BYTES;
+					return E_VM_STATUS_OK;
+				}
+			} else goto error;
 			break;
 		default:
 			return E_VM_STATUS_ERROR;
