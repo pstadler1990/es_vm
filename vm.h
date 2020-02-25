@@ -61,7 +61,7 @@ typedef struct {
 	uint32_t ip;
 	e_stack stack;
 	e_stack globals;
-	e_stack locals[E_LOCAL_SCOPES];
+	e_stack locals;
 	e_vm_status status;
 } e_vm;
 

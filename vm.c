@@ -15,9 +15,7 @@ e_vm_init(e_vm* vm) {
 	vm->ip = 0;
 	e_stack_init(&vm->stack, E_STACK_SIZE);
 	e_stack_init(&vm->globals, E_STACK_SIZE);
-	for(uint32_t s = 0; s < E_LOCAL_SCOPES; s++) {
-		e_stack_init(&vm->locals[s], E_STACK_SIZE);
-	}
+	e_stack_init(&vm->locals, E_STACK_SIZE);
 	vm->status = E_VM_STATUS_READY;
 }
 
@@ -95,8 +93,24 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			}
 			break;
 		case E_OP_PUSHL:
+			// Add value of pop([s-1]) to locals symbol stack at index u32(op1)
+			s1 = e_stack_pop(&vm->stack);
+			if(s1.status == E_STATUS_OK) {
+				printf("Storing value %f to local stack [%d]\n", s1.val.val, instr.op1);
+				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals,  s1.val, instr.op1);
+				if(s.status != E_STATUS_OK) goto error;
+			} else goto error;
 			break;
 		case E_OP_POPL:
+			// Find value [index] in local stack
+			{
+				e_stack_status_ret s = e_stack_peek_index(&vm->locals, instr.op1);
+				if(s.status == E_STATUS_OK) {
+					printf("Loading local from index %d -> %f\n", instr.op1, s.val.val);
+					// Push this value onto the vm->stack
+					e_stack_push(&vm->stack, s.val);
+				} else goto error;
+			}
 			break;
 		case E_OP_PUSH:
 			// Push (u32(operand 1 | operand 2)) onto stack
