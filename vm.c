@@ -123,7 +123,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val == s1.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val == s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_LT:
@@ -131,7 +131,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val < s1.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val < s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_GT:
@@ -139,7 +139,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val > s1.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val > s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_LTEQ:
@@ -147,7 +147,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val <= s1.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val <= s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_GTEQ:
@@ -155,7 +155,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number((uint8_t)s2.val.val >= s1.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val >= s1.val.val));
 			} else goto error;
 			break;
 		case E_OP_ADD:
@@ -227,9 +227,13 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					printf("is zero, perform jump to address [%d]\n", instr.op1 * E_INSTR_BYTES);
 					// Perform jump
 					vm->ip = instr.op1 * E_INSTR_BYTES;
-					return E_VM_STATUS_OK;
 				}
 			} else goto error;
+			break;
+		case E_OP_JMP:
+			// perform_jump()
+			printf("perform jump to address [%d]\n", instr.op1 * E_INSTR_BYTES);
+			vm->ip = instr.op1 * E_INSTR_BYTES;
 			break;
 		default:
 			return E_VM_STATUS_ERROR;

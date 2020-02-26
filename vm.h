@@ -90,6 +90,7 @@ typedef enum {
 	E_OP_NOT = 0x37,
 
 	E_OP_JZ = 0x40,        /* Jump if zero,                            JZ [addr]                           */
+	E_OP_JMP = 0x41,       /* unconditional jump,                      JMP [addr]                          */
 } e_opcode;
 
 typedef struct {
