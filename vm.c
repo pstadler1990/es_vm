@@ -235,7 +235,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				char buf[E_MAX_STRLEN];
 
 				if(s1.val.argtype == E_STRING && s2.val.argtype == E_STRING) {
-					// Adding two constant string literals (should not happen)
+					// Adding two constant string literals
+					// (should not happen because the compiler will create the right ops for this case)
+					goto error;
 				} else {
 					char num_buf[E_MAX_STRLEN];
 					uint32_t slen = 0;
@@ -258,8 +260,12 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						}
 						// Concatenate strings
 						strcat(buf, num_buf);
-						printf("Created dynamic string: %s\n", buf);
-						// TODO: Create new string? (Store where??!)
+						unsigned int str_index = e_ds_store_string(vm, buf);
+
+						printf("Created dynamic string %s and placed it in ds at index %d\n", buf, str_index);
+						// PUSH new index
+						e_stack_push(&vm->stack, e_create_number(str_index));
+
 					} else goto error;
 				}
 			}
@@ -376,6 +382,40 @@ e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen) {
 	buf[i] = 0;
 	if(strlen(buf) == size) return E_VM_STATUS_OK;
 	return E_VM_STATUS_ERROR;
+}
+
+int
+e_ds_get_size(e_vm* vm) {
+	uint32_t i = 1;
+	if(i + 1 < E_OUT_SIZE) {
+		uint16_t size = (vm->ds[i] << 8) | vm->ds[i+1];
+		while(size != 0) {
+			i = i + size + 2;
+			size = (vm->ds[i] << 8) | vm->ds[i+1];
+		}
+	}
+	return i;
+}
+
+int
+e_ds_store_string(e_vm* vm, const char* str) {
+	// Stores a string in the required format [LENGTH, 2 Bytes][<str data>]
+	uint32_t r_len = strlen(str);
+	int ds_size = e_ds_get_size(vm);
+
+	if(r_len > UINT16_MAX || ds_size + r_len > E_OUT_TOTAL_SIZE) {
+		return -1;
+	} else {
+		uint32_t start_index = ds_size;
+		uint16_t len = (uint16_t)r_len;
+
+		vm->ds[ds_size++] = (uint8_t)((len >> 8) & 0xFF);
+		vm->ds[ds_size++] = (uint8_t)(len & 0xFF);
+		for(uint16_t i = 0; i < len; i++) {
+			vm->ds[ds_size++] = (uint8_t)str[i];
+		}
+		return start_index;
+	}
 }
 
 void

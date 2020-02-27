@@ -118,6 +118,8 @@ e_vm_status e_vm_evaluate_instr(e_vm* vm, e_instr instr);
 e_value e_create_number(double n);
 
 e_vm_status e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen);
+int e_ds_store_string(e_vm* vm, const char* str);
+int e_ds_get_size(e_vm* vm);
 
 // Stack
 void e_stack_init(e_stack* stack, uint32_t size);
