@@ -23,6 +23,9 @@ e_vm_status
 e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 	if(blen == 0) return E_VM_STATUS_EOF;
 
+	// Copy data segment
+	memcpy(&vm->ds, &bytes[E_OUT_SIZE], E_OUT_DS_SIZE);
+
 	do {
 		printf("** IP: %d ** ", vm->ip);
 
@@ -48,7 +51,7 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 			return E_VM_STATUS_ERROR;
 		}
 
-	} while(vm->ip < blen);
+	} while(vm->ip < blen && vm->ip <= E_OUT_SIZE);
 
 	return E_VM_STATUS_OK;
 }
@@ -76,7 +79,10 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			// Add value of pop([s-1]) to global symbol stack at index u32(op1)
 			s1 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK) {
-				printf("Storing value %f to global stack [%d]\n", s1.val.val, instr.op1);
+				printf("Storing value %f to global stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
+				if(instr.op2 == E_ARGT_STRING) {
+					s1.val.argtype = E_STRING;
+				}
 				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals,  s1.val, instr.op1);
 				if(s.status != E_STATUS_OK) goto error;
 			} else goto error;
@@ -96,7 +102,10 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			// Add value of pop([s-1]) to locals symbol stack at index u32(op1)
 			s1 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK) {
-				printf("Storing value %f to local stack [%d]\n", s1.val.val, instr.op1);
+				printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
+				if(instr.op2 == E_ARGT_STRING) {
+					s1.val.argtype = E_STRING;
+				}
 				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals,  s1.val, instr.op1);
 				if(s.status != E_STATUS_OK) goto error;
 			} else goto error;
@@ -218,6 +227,43 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				e_stack_push(&vm->stack, e_create_number(!s1.val.val));
 			} else goto error;
 			break;
+		case E_OP_CONCAT:
+			// Concatenate two strings (cast if number type) s[-1] and s[-2]
+			s1 = e_stack_pop(&vm->stack);
+			s2 = e_stack_pop(&vm->stack);
+			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
+				char buf[E_MAX_STRLEN];
+
+				if(s1.val.argtype == E_STRING && s2.val.argtype == E_STRING) {
+					// Adding two constant string literals (should not happen)
+				} else {
+					char num_buf[E_MAX_STRLEN];
+					uint32_t slen = 0;
+					e_vm_status s;
+					if(s1.val.argtype == E_STRING) {
+						// s2 is a number
+						snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
+						s = e_ds_read_string(vm, s2.val.val, buf, E_MAX_STRLEN);
+					} else {
+						// s1 is a number
+						snprintf(num_buf, E_MAX_STRLEN, "%f", s1.val.val);
+						s = e_ds_read_string(vm, s2.val.val, buf, E_MAX_STRLEN);
+					}
+
+					if(s == E_VM_STATUS_OK) {
+						slen = strlen(buf);
+						printf("Strlen of non-numeric part: %d\n", slen);
+						if (strlen(num_buf) + slen > E_MAX_STRLEN) {
+							goto error;
+						}
+						// Concatenate strings
+						strcat(buf, num_buf);
+						printf("Created dynamic string: %s\n", buf);
+						// TODO: Create new string? (Store where??!)
+					} else goto error;
+				}
+			}
+			break;
 		case E_OP_JZ:
 			// POP s[-1]
 			// if(s[-1] == 0) then perform_jump()
@@ -310,6 +356,26 @@ e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index) {
 e_value
 e_create_number(double n) {
 	return (e_value){ .val = n, .argtype = E_NUMBER };
+}
+
+e_vm_status
+e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen) {
+	uint32_t offset = addr - E_OUT_SIZE;
+	printf("Reading string from %d\n", addr);
+
+	uint16_t size = (vm->ds[offset] << 8) | (vm->ds[offset+1]);
+	printf("String length: %d\n", size);
+	if(size > slen) {
+		return E_VM_STATUS_ERROR;
+	}
+	uint16_t i = 0;	// first two bytes are length information
+	while(i < slen && i < size) {
+		buf[i] = vm->ds[offset + 2 + i];
+		i++;
+	}
+	buf[i] = 0;
+	if(strlen(buf) == size) return E_VM_STATUS_OK;
+	return E_VM_STATUS_ERROR;
 }
 
 void
