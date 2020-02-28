@@ -21,6 +21,12 @@ typedef enum {
 } e_arg_type;
 
 typedef enum {
+	E_CONCAT_FIRST,
+	E_CONCAT_SECOND,
+	E_CONCAT_BOTH
+} e_concat_type;
+
+typedef enum {
 	E_STATUS_NESTING = -7,
 	E_STATUS_UNDERFLOW = -6,
 	E_STATUS_DATATMIS = -5,

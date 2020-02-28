@@ -232,30 +232,66 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				char buf[E_MAX_STRLEN];
-				char num_buf[E_MAX_STRLEN];
+				int str_index;
 
-				uint32_t slen = 0;
-				e_vm_status s;
+				if(instr.op2 != E_CONCAT_BOTH) {
+					// s1 contains string
+					// s2 contains number
+					e_vm_status s;
+					uint32_t slen = 0;
+					char buf[E_MAX_STRLEN];
+					char num_buf[E_MAX_STRLEN];
 
-				// Compiler generates OP so that s2 is always the numeric operand (number)
-				snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
-				s = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
+					snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
+					s = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
 
-				if(s == E_VM_STATUS_OK) {
-					slen = strlen(buf);
-					if (strlen(num_buf) + slen > E_MAX_STRLEN) {
-						goto error;
-					}
-					// Concatenate strings
-					strcat(buf, num_buf);
-					unsigned int str_index = e_ds_store_string(vm, buf);
-					if(str_index != -1) {
-						printf("Created dynamic string %s and placed it in ds at index %d\n", buf, str_index);
-						// PUSH new index
-						e_stack_push(&vm->stack, e_create_number(str_index));
+					if(s == E_VM_STATUS_OK) {
+						slen = strlen(buf);
+						if(strlen(num_buf) + slen > E_MAX_STRLEN) {
+							goto error;
+						}
+						// Concatenate strings
+						if(instr.op2 == E_CONCAT_SECOND) {
+							strcat(buf, num_buf);
+							str_index = e_ds_store_string(vm, buf);
+							if(str_index != -1) {
+								printf("Created dynamic string %s and placed it in ds at index %d\n", buf, str_index);
+							}
+						} else {
+							strcat(num_buf, buf);
+							str_index = e_ds_store_string(vm, num_buf);
+							if (str_index != -1) {
+								printf("Created dynamic string %s and placed it in ds at index %d\n", num_buf, str_index);
+							}
+						}
+					} else goto error;
+				} else {
+					// s1 contains string
+					// s2 contains string
+					char buf1[E_MAX_STRLEN];
+					char buf2[E_MAX_STRLEN];
+
+					e_vm_status str1 = e_ds_read_string(vm, s2.val.val, buf1, E_MAX_STRLEN);
+					e_vm_status str2 = e_ds_read_string(vm, s1.val.val, buf2, E_MAX_STRLEN);
+					if(str1 == str2 == E_VM_STATUS_OK) {
+						unsigned int slen1 = strlen(buf1);
+						unsigned int slen2 = strlen(buf2);
+						if(slen1 + slen2 > E_MAX_STRLEN) {
+							goto error;
+						}
+						// Concatenate strings
+						strcat(buf1, buf2);
+						str_index = e_ds_store_string(vm, buf1);
+						if(str_index != -1) {
+							printf("Created dynamic string %s and placed it in ds at index %d\n", buf1, str_index);
+						}
 					} else goto error;
 				}
+
+				if(str_index != -1) {
+					// PUSH new index
+					e_stack_push(&vm->stack, e_create_number(str_index));
+				} else goto error;
 			} else goto error;
 			break;
 		case E_OP_JZ:
