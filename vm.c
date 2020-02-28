@@ -233,42 +233,30 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
 				char buf[E_MAX_STRLEN];
+				char num_buf[E_MAX_STRLEN];
 
-				if(s1.val.argtype == E_STRING && s2.val.argtype == E_STRING) {
-					// Adding two constant string literals
-					// (should not happen because the compiler will create the right ops for this case)
-					goto error;
-				} else {
-					char num_buf[E_MAX_STRLEN];
-					uint32_t slen = 0;
-					e_vm_status s;
-					if(s1.val.argtype == E_STRING) {
-						// s2 is a number
-						snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
-						s = e_ds_read_string(vm, s2.val.val, buf, E_MAX_STRLEN);
-					} else {
-						// s1 is a number
-						snprintf(num_buf, E_MAX_STRLEN, "%f", s1.val.val);
-						s = e_ds_read_string(vm, s2.val.val, buf, E_MAX_STRLEN);
+				uint32_t slen = 0;
+				e_vm_status s;
+
+				// Compiler generates OP so that s2 is always the numeric operand (number)
+				snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
+				s = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
+
+				if(s == E_VM_STATUS_OK) {
+					slen = strlen(buf);
+					if (strlen(num_buf) + slen > E_MAX_STRLEN) {
+						goto error;
 					}
-
-					if(s == E_VM_STATUS_OK) {
-						slen = strlen(buf);
-						printf("Strlen of non-numeric part: %d\n", slen);
-						if (strlen(num_buf) + slen > E_MAX_STRLEN) {
-							goto error;
-						}
-						// Concatenate strings
-						strcat(buf, num_buf);
-						unsigned int str_index = e_ds_store_string(vm, buf);
-
+					// Concatenate strings
+					strcat(buf, num_buf);
+					unsigned int str_index = e_ds_store_string(vm, buf);
+					if(str_index != -1) {
 						printf("Created dynamic string %s and placed it in ds at index %d\n", buf, str_index);
 						// PUSH new index
 						e_stack_push(&vm->stack, e_create_number(str_index));
-
 					} else goto error;
 				}
-			}
+			} else goto error;
 			break;
 		case E_OP_JZ:
 			// POP s[-1]
@@ -414,7 +402,7 @@ e_ds_store_string(e_vm* vm, const char* str) {
 		for(uint16_t i = 0; i < len; i++) {
 			vm->ds[ds_size++] = (uint8_t)str[i];
 		}
-		return start_index;
+		return E_OUT_SIZE + start_index;
 	}
 }
 

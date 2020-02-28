@@ -9,8 +9,8 @@
 
 #define	E_STACK_SIZE ((uint32_t)1024)
 #define	E_INSTR_BYTES ((uint32_t)9)
-#define E_OUT_DS_SIZE       ((int)500)
-#define E_OUT_SIZE          ((int)2000)
+#define E_OUT_DS_SIZE       ((int)100/*500*/)
+#define E_OUT_SIZE          ((int)250/*2000*/)
 #define E_OUT_TOTAL_SIZE    ((int)E_OUT_DS_SIZE + E_OUT_SIZE)
 
 #define E_MAX_STRLEN    ((int)1024)
