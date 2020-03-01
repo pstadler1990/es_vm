@@ -9,7 +9,22 @@
 
 #define	E_STACK_SIZE ((uint32_t)1024)
 #define	E_INSTR_BYTES ((uint32_t)9)
-#define E_LOCAL_SCOPES     ((int)64)
+#define E_OUT_DS_SIZE       ((int)100/*500*/)
+#define E_OUT_SIZE          ((int)250/*2000*/)
+#define E_OUT_TOTAL_SIZE    ((int)E_OUT_DS_SIZE + E_OUT_SIZE)
+
+#define E_MAX_STRLEN    ((int)1024)
+typedef enum {
+	E_ARGT_NULL = 2,
+	E_ARGT_NUMBER = 0,
+	E_ARGT_STRING = 1
+} e_arg_type;
+
+typedef enum {
+	E_CONCAT_FIRST,
+	E_CONCAT_SECOND,
+	E_CONCAT_BOTH
+} e_concat_type;
 
 typedef enum {
 	E_STATUS_NESTING = -7,
@@ -61,8 +76,9 @@ typedef struct {
 	uint32_t ip;
 	e_stack stack;
 	e_stack globals;
-	e_stack locals[E_LOCAL_SCOPES];
+	e_stack locals;
 	e_vm_status status;
+	uint8_t ds[E_OUT_DS_SIZE];
 } e_vm;
 
 // OPCODES
@@ -88,8 +104,10 @@ typedef enum {
 	E_OP_AND = 0x35,
 	E_OP_OR = 0x36,
 	E_OP_NOT = 0x37,
+	E_OP_CONCAT = 0x38,    /* Concatenate strings                       CONCAT              s[s-1].[s-2]   */
 
 	E_OP_JZ = 0x40,        /* Jump if zero,                            JZ [addr]                           */
+	E_OP_JMP = 0x41,       /* unconditional jump,                      JMP [addr]                          */
 } e_opcode;
 
 typedef struct {
@@ -104,6 +122,10 @@ void e_vm_init(e_vm* vm);
 e_vm_status e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen);
 e_vm_status e_vm_evaluate_instr(e_vm* vm, e_instr instr);
 e_value e_create_number(double n);
+
+e_vm_status e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen);
+int e_ds_store_string(e_vm* vm, const char* str);
+int e_ds_get_size(e_vm* vm);
 
 // Stack
 void e_stack_init(e_stack* stack, uint32_t size);
