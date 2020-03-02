@@ -9,7 +9,7 @@
 
 #define	E_STACK_SIZE ((uint32_t)1024)
 #define	E_INSTR_BYTES ((uint32_t)9)
-#define E_OUT_DS_SIZE       ((int)100/*500*/)
+#define E_OUT_DS_SIZE       ((int)250/*500*/)
 #define E_OUT_SIZE          ((int)250/*2000*/)
 #define E_OUT_TOTAL_SIZE    ((int)E_OUT_DS_SIZE + E_OUT_SIZE)
 
@@ -134,5 +134,8 @@ e_stack_status_ret e_stack_pop(e_stack* stack);
 e_stack_status_ret e_stack_peek(e_stack* stack);
 e_stack_status_ret e_stack_peek_index(e_stack* stack, uint32_t index);
 e_stack_status_ret e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index);
+
+// Debug
+void e_debug_dump_stack(const e_vm* vm, const e_stack* tab);
 
 #endif //ES_VM_H

@@ -51,6 +51,9 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 			return E_VM_STATUS_ERROR;
 		}
 
+		printf("-- GLOBAL STACK --\n");
+		e_debug_dump_stack(vm, &vm->globals);
+
 	} while(vm->ip < blen && vm->ip <= E_OUT_SIZE);
 
 	return E_VM_STATUS_OK;
@@ -391,10 +394,10 @@ e_create_number(double n) {
 e_vm_status
 e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen) {
 	uint32_t offset = addr - E_OUT_SIZE;
-	printf("Reading string from %d\n", addr);
+	//printf("Reading string from %d\n", addr);
 
 	uint16_t size = (vm->ds[offset] << 8) | (vm->ds[offset+1]);
-	printf("String length: %d\n", size);
+	//printf("String length: %d\n", size);
 	if(size > slen) {
 		return E_VM_STATUS_ERROR;
 	}
@@ -440,6 +443,25 @@ e_ds_store_string(e_vm* vm, const char* str) {
 		}
 		return E_OUT_SIZE + start_index;
 	}
+}
+
+void
+e_debug_dump_stack(const e_vm* vm, const e_stack* tab) {
+#define E_DEBUG_OUT	10
+	for(unsigned int i = 0; i < tab->size && i < E_DEBUG_OUT; i++) {
+		const e_value cur = tab->entries[i];
+
+		printf("[%d]\t", i);
+
+		if(cur.argtype == E_STRING) {
+			char buf[E_MAX_STRLEN];
+			e_ds_read_string(vm, cur.val, buf, E_MAX_STRLEN);
+			printf("STRING\tIndex: %d\t%s\n", (uint32_t)cur.val-E_OUT_SIZE, buf);
+		} else if(cur.argtype == E_NUMBER) {
+			printf("NUMBER\t%f\n", cur.val);
+		}
+	}
+#undef E_DEBUG_OUT
 }
 
 void
