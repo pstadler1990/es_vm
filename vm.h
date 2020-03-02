@@ -9,7 +9,7 @@
 
 #define	E_STACK_SIZE ((uint32_t)1024)
 #define	E_INSTR_BYTES ((uint32_t)9)
-#define E_OUT_DS_SIZE       ((int)250/*500*/)
+#define E_OUT_DS_SIZE       ((int)100/*500*/)
 #define E_OUT_SIZE          ((int)250/*2000*/)
 #define E_OUT_TOTAL_SIZE    ((int)E_OUT_DS_SIZE + E_OUT_SIZE)
 
@@ -36,6 +36,7 @@ typedef enum {
 	E_STATUS_NOINIT = -1,
 	E_STATUS_UNDEF = 0,
 	E_STATUS_OK = 1,
+	E_STATUS_REQ = 2,
 } e_statusc;
 
 typedef enum {
@@ -108,6 +109,8 @@ typedef enum {
 
 	E_OP_JZ = 0x40,        /* Jump if zero,                            JZ [addr]                           */
 	E_OP_JMP = 0x41,       /* unconditional jump,                      JMP [addr]                          */
+
+	E_OP_PRINT  = 0x50,    /* Print statement (debug)                  PRINT(expr)                         */
 } e_opcode;
 
 typedef struct {
@@ -125,6 +128,7 @@ e_value e_create_number(double n);
 
 e_vm_status e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen);
 int e_ds_store_string(e_vm* vm, const char* str);
+e_vm_status e_ds_drop_string(e_vm* vm, uint32_t addr);
 int e_ds_get_size(e_vm* vm);
 
 // Stack
