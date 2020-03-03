@@ -36,7 +36,6 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 
 		e_instr cur_instr;
 		uint32_t ip_begin = vm->ip;
-		uint32_t instr_nr = vm->ip / E_INSTR_BYTES;
 
 		cur_instr.OP = bytes[vm->ip];
 		cur_instr.op1 = (uint32_t)((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) | (bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
@@ -270,7 +269,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				int str_index;
 
 				if(instr.op2 != E_CONCAT_BOTH) {
 					// s1 contains string
@@ -291,22 +289,10 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						// Concatenate strings
 						if(instr.op2 == E_CONCAT_SECOND) {
 							strcat(buf, num_buf);
-							//str_index = e_ds_store_string(vm, buf);
 							e_stack_push(&vm->stack, e_create_string(buf));
-#if E_DEBUG
-							//if(str_index != -1) {
-							//	printf("Created dynamic string %s and placed it in ds at index %d\n", buf, str_index);
-							//}
-#endif
 						} else {
 							strcat(num_buf, buf);
-							//str_index = e_ds_store_string(vm, num_buf);
 							e_stack_push(&vm->stack, e_create_string(num_buf));
-#if E_DEBUG
-							//if (str_index != -1) {
-							//	printf("Created dynamic string %s and placed it in ds at index %d\n", num_buf, str_index);
-							//}
-#endif
 						}
 					} else goto error;
 				} else {
@@ -325,20 +311,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						}
 						// Concatenate strings
 						strcat(buf1, buf2);
-						//str_index = e_ds_store_string(vm, buf1);
 						e_stack_push(&vm->stack, e_create_string(buf1));
-#if E_DEBUG
-						//if(str_index != -1) {
-						//	printf("Created dynamic string %s and placed it in ds at index %d\n", buf1, str_index);
-						//}
-#endif
 					} else goto error;
 				}
-
-				//if(str_index != -1) {
-					// PUSH new index
-					//e_stack_push(&vm->stack, e_create_number(str_index));
-				//} else goto error;
 			} else goto error;
 			break;
 		case E_OP_JZ:
@@ -368,14 +343,18 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(instr.op2 == E_NUMBER) {
 					printf("%f\n", s1.val.val);
 				} else if(instr.op2 == E_STRING) {
-					//char buf[E_MAX_STRLEN];
-					//e_vm_status str = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
+					if(s1.val.sval.sval == NULL) {
+						char buf[E_MAX_STRLEN];
+						e_vm_status str = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
 #if E_DEBUG
-					printf("Read string for print at index: %d\n", (uint32_t)s1.val.val);
+						printf("Read string for print at index: %d\n", (uint32_t)s1.val.val);
 #endif
-					//if(str == E_VM_STATUS_OK) {
-						printf("%s\n", s1.val.sval.sval/*buf*/);
-					//} else goto error;
+						if(str == E_VM_STATUS_OK) {
+							printf("%s", buf);
+						} else goto error;
+					} else {
+						printf("%s", s1.val.sval.sval);
+					}
 				} else {
 					fail("Unsupported expression");
 					goto error;
@@ -484,16 +463,27 @@ e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen) {
 	uint32_t offset = addr - E_OUT_SIZE;
 
 	uint16_t size = (vm->ds[offset] << 8) | (vm->ds[offset+1]);
+	uint32_t r_len = size;
 	if(size > slen) {
 		return E_VM_STATUS_ERROR;
 	}
 	uint16_t i = 0;	// first two bytes are length information
-	while(i < slen && i < size) {
+	while(i < r_len && i < size) {
+
+		uint8_t tmp1 = vm->ds[offset + 2 + i];
+		uint8_t tmp2 = vm->ds[offset + 2 + i + 1];
+		if(tmp1 == '\\' && tmp2 == 'n') {
+			// Replace ASCII coded newline chars '\' + 'n' to correct control sequence
+			buf[i] = '\n';
+			r_len -= 1;
+			i++;
+			continue;
+		}
 		buf[i] = vm->ds[offset + 2 + i];
 		i++;
 	}
 	buf[i] = 0;
-	if(strlen(buf) == size) return E_VM_STATUS_OK;
+	if(strlen(buf) == r_len) return E_VM_STATUS_OK;
 	return E_VM_STATUS_ERROR;
 }
 
