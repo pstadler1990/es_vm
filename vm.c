@@ -48,7 +48,7 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 			return E_VM_STATUS_ERROR;
 		}
 #if E_DEBUG
-		printf("Fetched instruction %d -> [0x%02X] (0x%02X, 0x%02X)\n", instr_nr, cur_instr.OP, cur_instr.op1, cur_instr.op2);
+		printf("Fetched instruction -> [0x%02X] (0x%02X, 0x%02X)\n", cur_instr.OP, cur_instr.op1, cur_instr.op2);
 #endif
 
 		e_vm_status es = e_vm_evaluate_instr(vm, cur_instr);
@@ -100,12 +100,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					s1.val.argtype = E_STRING;
 				}
 				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals,  s1.val, instr.op1);
-				if(s.status == E_STATUS_REQ || s.status == E_STATUS_OK) {
-					if(s.status == E_STATUS_REQ && s1.val.argtype == E_STRING) {
-						// Drop string
-						e_vm_status s_drop = e_ds_drop_string(vm, s.val.val);
-					}
-				} else goto error;
+				if(s.status != E_STATUS_OK) goto error;
 			} else goto error;
 			break;
 		case E_OP_POPG:
@@ -125,24 +120,15 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			// Add value of pop([s-1]) to locals symbol stack at index u32(op1)
 			s1 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK) {
-
+#if E_DEBUG
 				if(instr.op2 == E_ARGT_STRING) {
-#if E_DEBUG
 					printf("Storing value %s to local stack [%d] (type: %d)\n", s1.val.sval.sval, instr.op1, instr.op2);
-#endif
-					//s1.val.argtype = E_STRING;
 				} else if(instr.op2 == E_ARGT_NUMBER) {
-#if E_DEBUG
 					printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
-#endif
 				}
+#endif
 				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals,  s1.val, instr.op1);
-				if(s.status == E_STATUS_REQ || s.status == E_STATUS_OK) {
-					if(s.status == E_STATUS_REQ && s1.val.argtype == E_STRING) {
-						// Drop string
-						e_vm_status s_drop = e_ds_drop_string(vm, s.val.val);
-					}
-				} else goto error;
+				if(s.status != E_STATUS_OK) goto error;
 			} else goto error;
 			break;
 		case E_OP_POPL:
@@ -429,16 +415,6 @@ e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index) {
 		return (e_stack_status_ret) { .status = E_STATUS_NOINIT };
 	}
 
-	if(stack->entries[index].argtype == E_STRING) {
-		// If previous node was of type string, drop this string from the DS
-#if E_DEBUG
-		printf("Previous node was of type string. Dropping string at index: %d\n", (uint32_t)stack->entries[index].val);
-#endif
-		uint32_t prev = (uint32_t)stack->entries[index].val;
-		stack->entries[index] = v;
-		return (e_stack_status_ret) { .status = E_STATUS_REQ, .val = e_create_number(prev) };
-	}
-
 	stack->entries[index] = v;
 	return (e_stack_status_ret) { .status = E_STATUS_OK };
 }
@@ -475,7 +451,7 @@ e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen) {
 		if(tmp1 == '\\' && tmp2 == 'n') {
 			// Replace ASCII coded newline chars '\' + 'n' to correct control sequence
 			buf[i] = '\n';
-			r_len -= 1;
+			r_len--;
 			i++;
 			continue;
 		}
@@ -498,43 +474,6 @@ e_ds_get_size(e_vm* vm) {
 		}
 	}
 	return i;
-}
-
-int
-e_ds_store_string(e_vm* vm, const char* str) {
-	// Stores a string in the required format [LENGTH, 2 Bytes][<str data>]
-	uint32_t r_len = strlen(str);
-	int ds_size = e_ds_get_size(vm);
-
-	if(r_len > UINT16_MAX || ds_size + r_len > E_OUT_TOTAL_SIZE) {
-		return -1;
-	} else {
-		uint32_t start_index = ds_size;
-		uint16_t len = (uint16_t)r_len;
-
-		vm->ds[ds_size++] = (uint8_t)((len >> 8) & 0xFF);
-		vm->ds[ds_size++] = (uint8_t)(len & 0xFF);
-		for(uint16_t i = 0; i < len; i++) {
-			vm->ds[ds_size++] = (uint8_t)str[i];
-		}
-		return E_OUT_SIZE + start_index;
-	}
-}
-
-e_vm_status
-e_ds_drop_string(e_vm* vm, uint32_t addr) {
-	uint32_t offset = addr - E_OUT_SIZE;
-#if E_DEBUG
-	printf("Dropping string from %d\n", addr);
-#endif
-
-	uint16_t size = (vm->ds[offset] << 8) | (vm->ds[offset + 1]);
-	if(size > E_OUT_DS_SIZE || size == 0) {
-		return E_VM_STATUS_ERROR;
-	}
-	memset(&vm->ds[offset], 0, size + 2);
-
-	return E_VM_STATUS_OK;
 }
 
 void
