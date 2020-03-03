@@ -8,7 +8,7 @@
 
 static void fail(const char* msg);
 
-#define E_DEBUG 1
+#define E_DEBUG 0
 #define E_DEBUG_PRINT_TABLES 0
 
 // VM
@@ -126,11 +126,16 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			// Add value of pop([s-1]) to locals symbol stack at index u32(op1)
 			s1 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK) {
-#if E_DEBUG
-				printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
-#endif
+
 				if(instr.op2 == E_ARGT_STRING) {
-					s1.val.argtype = E_STRING;
+#if E_DEBUG
+					printf("Storing value %s to local stack [%d] (type: %d)\n", s1.val.sval.sval, instr.op1, instr.op2);
+#endif
+					//s1.val.argtype = E_STRING;
+				} else if(instr.op2 == E_ARGT_NUMBER) {
+#if E_DEBUG
+					printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
+#endif
 				}
 				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals,  s1.val, instr.op1);
 				if(s.status == E_STATUS_REQ || s.status == E_STATUS_OK) {
@@ -286,19 +291,21 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						// Concatenate strings
 						if(instr.op2 == E_CONCAT_SECOND) {
 							strcat(buf, num_buf);
-							str_index = e_ds_store_string(vm, buf);
+							//str_index = e_ds_store_string(vm, buf);
+							e_stack_push(&vm->stack, e_create_string(buf));
 #if E_DEBUG
-							if(str_index != -1) {
-								printf("Created dynamic string %s and placed it in ds at index %d\n", buf, str_index);
-							}
+							//if(str_index != -1) {
+							//	printf("Created dynamic string %s and placed it in ds at index %d\n", buf, str_index);
+							//}
 #endif
 						} else {
 							strcat(num_buf, buf);
-							str_index = e_ds_store_string(vm, num_buf);
+							//str_index = e_ds_store_string(vm, num_buf);
+							e_stack_push(&vm->stack, e_create_string(num_buf));
 #if E_DEBUG
-							if (str_index != -1) {
-								printf("Created dynamic string %s and placed it in ds at index %d\n", num_buf, str_index);
-							}
+							//if (str_index != -1) {
+							//	printf("Created dynamic string %s and placed it in ds at index %d\n", num_buf, str_index);
+							//}
 #endif
 						}
 					} else goto error;
@@ -318,19 +325,20 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						}
 						// Concatenate strings
 						strcat(buf1, buf2);
-						str_index = e_ds_store_string(vm, buf1);
+						//str_index = e_ds_store_string(vm, buf1);
+						e_stack_push(&vm->stack, e_create_string(buf1));
 #if E_DEBUG
-						if(str_index != -1) {
-							printf("Created dynamic string %s and placed it in ds at index %d\n", buf1, str_index);
-						}
+						//if(str_index != -1) {
+						//	printf("Created dynamic string %s and placed it in ds at index %d\n", buf1, str_index);
+						//}
 #endif
 					} else goto error;
 				}
 
-				if(str_index != -1) {
+				//if(str_index != -1) {
 					// PUSH new index
-					e_stack_push(&vm->stack, e_create_number(str_index));
-				} else goto error;
+					//e_stack_push(&vm->stack, e_create_number(str_index));
+				//} else goto error;
 			} else goto error;
 			break;
 		case E_OP_JZ:
@@ -360,14 +368,14 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(instr.op2 == E_NUMBER) {
 					printf("%f\n", s1.val.val);
 				} else if(instr.op2 == E_STRING) {
-					char buf[E_MAX_STRLEN];
-					e_vm_status str = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
+					//char buf[E_MAX_STRLEN];
+					//e_vm_status str = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
 #if E_DEBUG
 					printf("Read string for print at index: %d\n", (uint32_t)s1.val.val);
 #endif
-					if(str == E_VM_STATUS_OK) {
-						printf("%s\n", buf);
-					} else goto error;
+					//if(str == E_VM_STATUS_OK) {
+						printf("%s\n", s1.val.sval.sval/*buf*/);
+					//} else goto error;
 				} else {
 					fail("Unsupported expression");
 					goto error;
@@ -459,6 +467,16 @@ e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index) {
 e_value
 e_create_number(double n) {
 	return (e_value){ .val = n, .argtype = E_NUMBER };
+}
+
+e_value
+e_create_string(const char* str) {
+	e_str_type new_str;
+
+	new_str.sval = (uint8_t*)strdup(str);
+	new_str.slen = strlen(str);
+
+	return (e_value) { .sval = new_str, .argtype = E_ARGT_STRING };
 }
 
 e_vm_status
