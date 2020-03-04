@@ -209,7 +209,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_MUL:
 			// PUSH (s[-1] * s[-2])
-			// PUSH (s[-1] + s[-2])
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
@@ -218,11 +217,18 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_DIV:
 			// PUSH (s[-1] / s[-2])
-			// PUSH (s[-1] + s[-2])
 			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				e_stack_push(&vm->stack, e_create_number(s1.val.val / s2.val.val));
+				e_stack_push(&vm->stack, e_create_number(s2.val.val / s1.val.val));
+			}
+			break;
+		case E_OP_MOD:
+			// PUSH (s[-1] % s[-2])
+			s1 = e_stack_pop(&vm->stack);
+			s2 = e_stack_pop(&vm->stack);
+			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
+				e_stack_push(&vm->stack, e_create_number((uint8_t)((uint32_t)s2.val.val % (uint32_t)s1.val.val)));
 			}
 			break;
 		case E_OP_AND:

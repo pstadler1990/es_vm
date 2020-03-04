@@ -106,6 +106,7 @@ typedef enum {
 	E_OP_OR = 0x36,
 	E_OP_NOT = 0x37,
 	E_OP_CONCAT = 0x38,    /* Concatenate strings                       CONCAT              s[s-1].[s-2]   */
+	E_OP_MOD = 0x39,       /* Modulo                                    MOD                 s[-1] % s[-2]  */
 
 	E_OP_JZ = 0x40,        /* Jump if zero,                            JZ [addr]                           */
 	E_OP_JMP = 0x41,       /* unconditional jump,                      JMP [addr]                          */
