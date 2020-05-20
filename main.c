@@ -1,16 +1,34 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include "vm.h"
 
 e_vm context;
+#define MAX_BUF_SIZE	((uint32_t)1000)
 
+int main(int argc, char** argv) {
+	uint8_t bytes_in[MAX_BUF_SIZE];
+	uint32_t bCnt = 0;
 
-int main() {
+	bool bytes_mode = false;
+	for(int a = 0; a < argc; a++) {
+		if(!bytes_mode) {
+			if(strncmp(argv[a], "-b", 2) == 0) {
+				bytes_mode = true;
+			}
+		} else {
+			/* Interpret following bytes as in bytes (bytecode stream) */
+			if(bCnt < MAX_BUF_SIZE) {
+				uint8_t b = (uint8_t)strtod(argv[a], NULL);
+				bytes_in[bCnt++] = b;
+			}
+		}
+	}
 
-	uint8_t bytes_in[] = {
-			22, 64, 20, 0, 0, 0, 0, 0, 0, 72, 101, 108, 108, 111, 16, 0, 0, 0, 0, 0, 0, 0, 0, 22, 64, 20, 0, 0, 0, 0, 0, 0, 87, 111, 114, 108, 100, 16, 63, 240, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 22, 63, 240, 0, 0, 0, 0, 0, 0, 32, 17, 63, 240, 0, 0, 0, 0, 0, 0, 22, 64, 28, 0, 0, 0, 0, 0, 0, 32, 45, 45, 45, 45, 62, 32, 20, 64, 9, 42, 89, 178, 249, 188, 240, 56, 0, 0, 0, 0, 0, 0, 0, 0, 56, 0, 0, 0, 0, 0, 0, 0, 0, 56, 0, 0, 0, 0, 0, 0, 0, 0, 56, 0, 0, 0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0, 0, 0, 0
-	};
 	e_vm_init(&context);
-
-	e_vm_parse_bytes(&context, bytes_in,sizeof(bytes_in) / sizeof(uint8_t));
+	printf("** Parsing %d bytes **\n", bCnt);
+	e_vm_parse_bytes(&context, bytes_in, bCnt /*sizeof(bytes_in) / sizeof(uint8_t)*/);
 
 	return 0;
 }
