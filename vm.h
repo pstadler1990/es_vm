@@ -9,8 +9,8 @@
 
 #define	E_STACK_SIZE ((uint32_t)1024)
 #define	E_INSTR_BYTES ((uint32_t)9)
-#define E_OUT_DS_SIZE       ((int)250/*500*/)
-#define E_OUT_SIZE          ((int)500/*2000*/)
+#define E_OUT_DS_SIZE       ((int)0/*500*/)	// FIXME
+#define E_OUT_SIZE          ((int)0/*2000*/)	// FIXME
 #define E_OUT_TOTAL_SIZE    ((int)E_OUT_DS_SIZE + E_OUT_SIZE)
 
 #define E_MAX_STRLEN    ((int)1024)
@@ -91,6 +91,7 @@ typedef enum {
 	E_OP_POPL = 0x13,      /* Pop local variable,                      POPG [index]        [s-1]         	*/
 	E_OP_PUSH = 0x14,      /* Push variable onto top of stack,         PUSH 3                              	*/
 	E_OP_POP = 0x15,       /* Pop variable from top of stack,          POP,                s[-1]           	*/
+	E_OP_PUSHS = 0x16,	   /* Push string 							   PUSHS [ascii byte(s)] 				*/
 
 	E_OP_EQ = 0x20,        /* Equal check,                             EQ,                 s[-1]==s[-2]    	*/
 	E_OP_LT = 0x21,        /* Less than,                               LT,                 s[-1]<s[-2]     	*/
@@ -120,6 +121,8 @@ typedef struct {
 	uint32_t op2;
 } e_instr;
 
+// Built-ins
+uint32_t e_builtin_print(e_vm* vm, uint32_t arglen);
 
 // VM
 void e_vm_init(e_vm* vm);
@@ -127,11 +130,6 @@ e_vm_status e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen);
 e_vm_status e_vm_evaluate_instr(e_vm* vm, e_instr instr);
 e_value e_create_number(double n);
 e_value e_create_string(const char* str);
-
-e_vm_status e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen);
-int e_ds_store_string(e_vm* vm, const char* str);
-e_vm_status e_ds_drop_string(e_vm* vm, uint32_t addr);
-int e_ds_get_size(e_vm* vm);
 
 // Stack
 void e_stack_init(e_stack* stack, uint32_t size);

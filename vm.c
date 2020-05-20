@@ -27,7 +27,8 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 	if(blen == 0) return E_VM_STATUS_EOF;
 
 	// Copy data segment
-	memcpy(&vm->ds, &bytes[E_OUT_SIZE], E_OUT_DS_SIZE);
+	//memcpy(&vm->ds, &bytes[E_OUT_SIZE], E_OUT_DS_SIZE);
+	memcpy(&vm->ds, bytes, blen);
 
 	do {
 #if E_DEBUG
@@ -65,7 +66,7 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 		e_debug_dump_stack(vm, &vm->locals);
 #endif
 
-	} while(vm->ip < blen && vm->ip <= E_OUT_SIZE);
+	} while(vm->ip < blen /*&& vm->ip <= E_OUT_SIZE*/);
 
 	return E_VM_STATUS_OK;
 }
@@ -99,14 +100,14 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(instr.op2 == E_ARGT_STRING) {
 					s1.val.argtype = E_STRING;
 				}
-				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals,  s1.val, instr.op1);
+				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals,  s1.val, d_op);
 				if(s.status != E_STATUS_OK) goto error;
 			} else goto error;
 			break;
 		case E_OP_POPG:
 			// Find value [index] in global stack
 			{
-				e_stack_status_ret s = e_stack_peek_index(&vm->globals, instr.op1);
+				e_stack_status_ret s = e_stack_peek_index(&vm->globals, d_op);
 				if(s.status == E_STATUS_OK) {
 #if E_DEBUG
 					printf("Loading global from index %d -> %f\n", instr.op1, s.val.val);
@@ -127,7 +128,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
 				}
 #endif
-				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals,  s1.val, instr.op1);
+				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals,  s1.val, d_op);
 				if(s.status != E_STATUS_OK) goto error;
 			} else goto error;
 			break;
@@ -147,6 +148,19 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 		case E_OP_PUSH:
 			// Push (u32(operand 1 | operand 2)) onto stack
 			e_stack_push(&vm->stack, e_create_number(d_op));
+			break;
+		case E_OP_PUSHS:
+			// Push string onto stack
+			// d_op = string length
+			{
+				char tmp_str[E_MAX_STRLEN];
+				if(d_op < E_MAX_STRLEN - 1) {
+					memcpy(tmp_str, &vm->ds[vm->ip], (uint32_t)d_op);
+					tmp_str[(uint32_t)d_op] = 0;
+					e_stack_push(&vm->stack, e_create_string(tmp_str));
+					vm->ip = vm->ip + d_op;
+				} else goto error;
+			}
 			break;
 		case E_OP_POP:
 			break;
@@ -258,53 +272,52 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_CONCAT:
 			// Concatenate two strings (cast if number type) s[-1] and s[-2]
-			s1 = e_stack_pop(&vm->stack);
 			s2 = e_stack_pop(&vm->stack);
+			s1 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
 
-				if(instr.op2 != E_CONCAT_BOTH) {
-					// s1 contains string
-					// s2 contains number
+				if((s1.val.argtype == E_STRING || s2.val.argtype == E_STRING)
+					&& (s1.val.argtype != s2.val.argtype)) {
+					// s1 or s2 contains string and
+					// s1 or s2 contains number
 					e_vm_status s;
 					uint32_t slen = 0;
 					char buf[E_MAX_STRLEN];
 					char num_buf[E_MAX_STRLEN];
 
-					snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
-					s = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
+					if(s1.val.argtype == E_NUMBER) {
+						snprintf(num_buf, E_MAX_STRLEN, "%f", s1.val.val);
+						if(s2.val.sval.slen + strlen(num_buf) > E_MAX_STRLEN) goto error;
+						memcpy(buf, (char*)s2.val.sval.sval, s2.val.sval.slen);
+						buf[s2.val.sval.slen] = 0;
+						strcat(buf, num_buf);
+					} else {
+						snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
+						if(s1.val.sval.slen + strlen(num_buf) > E_MAX_STRLEN) goto error;
+						memcpy(buf, (char*)s1.val.sval.sval, s1.val.sval.slen);
+						buf[s1.val.sval.slen] = 0;
+						strcat(buf, num_buf);
+					}
 
-					if(s == E_VM_STATUS_OK) {
-						slen = strlen(buf);
-						if(strlen(num_buf) + slen > E_MAX_STRLEN) {
-							goto error;
-						}
-						// Concatenate strings
-						if(instr.op2 == E_CONCAT_SECOND) {
-							strcat(buf, num_buf);
-							e_stack_push(&vm->stack, e_create_string(buf));
-						} else {
-							strcat(num_buf, buf);
-							e_stack_push(&vm->stack, e_create_string(num_buf));
-						}
-					} else goto error;
+					e_stack_push(&vm->stack, e_create_string(buf));
 				} else {
 					// s1 contains string
 					// s2 contains string
 					char buf1[E_MAX_STRLEN];
 					char buf2[E_MAX_STRLEN];
 
-					e_vm_status str1 = e_ds_read_string(vm, s2.val.val, buf1, E_MAX_STRLEN);
-					e_vm_status str2 = e_ds_read_string(vm, s1.val.val, buf2, E_MAX_STRLEN);
-					if(str1 == str2 == E_VM_STATUS_OK) {
-						unsigned int slen1 = strlen(buf1);
-						unsigned int slen2 = strlen(buf2);
-						if(slen1 + slen2 > E_MAX_STRLEN) {
-							goto error;
-						}
-						// Concatenate strings
-						strcat(buf1, buf2);
-						e_stack_push(&vm->stack, e_create_string(buf1));
-					} else goto error;
+					if(s1.val.sval.slen + s2.val.sval.slen > E_MAX_STRLEN) {
+						goto error;
+					}
+					memcpy(buf1, s1.val.sval.sval, s1.val.sval.slen);
+					memcpy(buf2, s2.val.sval.sval, s2.val.sval.slen);
+					buf1[s1.val.sval.slen] = 0;
+					buf2[s2.val.sval.slen] = 0;
+
+					// Concatenate strings
+					strcat(buf1, buf2);
+					e_stack_push(&vm->stack, e_create_string(buf1));
+
 				}
 			} else goto error;
 			break;
@@ -318,7 +331,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					printf("is zero, perform jump to address [%d]\n", instr.op1 * E_INSTR_BYTES);
 #endif
 					// Perform jump
-					vm->ip = instr.op1 * E_INSTR_BYTES;
+					vm->ip = instr.op1 /** E_INSTR_BYTES*/;
 				}
 			} else goto error;
 			break;
@@ -327,31 +340,11 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 #if E_DEBUG
 			printf("perform jump to address [%d]\n", instr.op1 * E_INSTR_BYTES);
 #endif
-			vm->ip = instr.op1 * E_INSTR_BYTES;
+			vm->ip = instr.op1 /** E_INSTR_BYTES*/;
 			break;
 		case E_OP_PRINT:
-			s1 = e_stack_pop(&vm->stack);
-			if(s1.status == E_STATUS_OK) {
-				if(instr.op2 == E_NUMBER) {
-					printf("%f\n", s1.val.val);
-				} else if(instr.op2 == E_STRING) {
-					if(s1.val.sval.sval == NULL) {
-						char buf[E_MAX_STRLEN];
-						e_vm_status str = e_ds_read_string(vm, s1.val.val, buf, E_MAX_STRLEN);
-#if E_DEBUG
-						printf("Read string for print at index: %d\n", (uint32_t)s1.val.val);
-#endif
-						if(str == E_VM_STATUS_OK) {
-							printf("%s", buf);
-						} else goto error;
-					} else {
-						printf("%s", s1.val.sval.sval);
-					}
-				} else {
-					fail("Unsupported expression");
-					goto error;
-				}
-			} else goto error;
+			// TODO: Call __print() builtin
+			e_builtin_print(vm, 1);
 			break;
 		default:
 			return E_VM_STATUS_ERROR;
@@ -440,47 +433,19 @@ e_create_string(const char* str) {
 	return (e_value) { .sval = new_str, .argtype = E_ARGT_STRING };
 }
 
-e_vm_status
-e_ds_read_string(const e_vm* vm, uint32_t addr, char* buf, uint32_t slen) {
-	uint32_t offset = addr - E_OUT_SIZE;
+/* Built-ins */
+uint32_t e_builtin_print(e_vm* vm, uint32_t arglen) {
+	e_stack_status_ret s1;
 
-	uint16_t size = (vm->ds[offset] << 8) | (vm->ds[offset+1]);
-	uint32_t r_len = size;
-	if(size > slen) {
-		return E_VM_STATUS_ERROR;
+	s1 = e_stack_pop(&vm->stack);
+	if(s1.status == E_STATUS_OK
+		&& s1.val.argtype == E_STRING) {
+		printf("%s\n", s1.val.sval.sval);
 	}
-	uint16_t i = 0;	// first two bytes are length information
-	while(i < r_len && i < size) {
 
-		uint8_t tmp1 = vm->ds[offset + 2 + i];
-		uint8_t tmp2 = vm->ds[offset + 2 + i + 1];
-		if(tmp1 == '\\' && tmp2 == 'n') {
-			// Replace ASCII coded newline chars '\' + 'n' to correct control sequence
-			buf[i] = '\n';
-			r_len--;
-			i++;
-			continue;
-		}
-		buf[i] = vm->ds[offset + 2 + i];
-		i++;
-	}
-	buf[i] = 0;
-	if(strlen(buf) == r_len) return E_VM_STATUS_OK;
-	return E_VM_STATUS_ERROR;
+	return 0;	// 0 args are pushed back onto stack
 }
 
-int
-e_ds_get_size(e_vm* vm) {
-	uint32_t i = 1;
-	if(i + 1 < E_OUT_SIZE) {
-		uint16_t size = (vm->ds[i] << 8) | vm->ds[i+1];
-		while(size != 0) {
-			i = i + size + 2;
-			size = (vm->ds[i] << 8) | vm->ds[i+1];
-		}
-	}
-	return i;
-}
 
 void
 e_debug_dump_stack(const e_vm* vm, const e_stack* tab) {
@@ -491,9 +456,10 @@ e_debug_dump_stack(const e_vm* vm, const e_stack* tab) {
 		printf("[%d]\t", i);
 
 		if(cur.argtype == E_STRING) {
-			char buf[E_MAX_STRLEN];
-			e_ds_read_string(vm, cur.val, buf, E_MAX_STRLEN);
-			printf("STRING\tIndex: %d\t%s\n", (uint32_t)cur.val-E_OUT_SIZE, buf);
+			//char buf[E_MAX_STRLEN];
+			//memcpy(buf, cur.val, E_MAX_STRLEN);
+			//printf("STRING\tIndex: %d\t%s\n", (uint32_t)cur.val-E_OUT_SIZE, buf);
+			printf("STRING\t");
 		} else if(cur.argtype == E_NUMBER) {
 			printf("NUMBER\t%f\n", cur.val);
 		}
