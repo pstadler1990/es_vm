@@ -135,7 +135,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 		case E_OP_POPL:
 			// Find value [index] in local stack
 			{
-				e_stack_status_ret s = e_stack_peek_index(&vm->locals, instr.op1);
+				e_stack_status_ret s = e_stack_peek_index(&vm->locals, d_op);
 				if(s.status == E_STATUS_OK) {
 #if E_DEBUG
 					printf("Loading local from index %d -> %f\n", instr.op1, s.val.val);
@@ -328,19 +328,19 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			if(s1.status == E_STATUS_OK) {
 				if(s1.val.val == 0) {
 #if E_DEBUG
-					printf("is zero, perform jump to address [%d]\n", instr.op1 * E_INSTR_BYTES);
+					printf("is zero, perform jump to address [%f]\n", d_op /** E_INSTR_BYTES*/);
 #endif
 					// Perform jump
-					vm->ip = instr.op1 /** E_INSTR_BYTES*/;
+					vm->ip = d_op /** E_INSTR_BYTES*/;
 				}
 			} else goto error;
 			break;
 		case E_OP_JMP:
 			// perform_jump()
 #if E_DEBUG
-			printf("perform jump to address [%d]\n", instr.op1 * E_INSTR_BYTES);
+			printf("perform jump to address [%f]\n", d_op /** E_INSTR_BYTES*/);
 #endif
-			vm->ip = instr.op1 /** E_INSTR_BYTES*/;
+			vm->ip = d_op /** E_INSTR_BYTES*/;
 			break;
 		case E_OP_PRINT:
 			// TODO: Call __print() builtin
