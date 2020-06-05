@@ -98,6 +98,7 @@ typedef enum {
 	E_OP_GT = 0x22,        /* Greater than,                            GT,                 s[-1]<s[-2]    	*/
 	E_OP_LTEQ = 0x23,      /* Less than or equal,                      LTEQ,               s[-1]<=s[-2]    	*/
 	E_OP_GTEQ = 0x24,      /* Greater than or equal,                   GTEQ,               s[-1]>=s[-2]    	*/
+	E_OP_NOTEQ = 0x25,	   /* Not equal check,						   NOTEQ,			   s[-1]!=[s-2]		*/
 
 	E_OP_ADD = 0x30,
 	E_OP_SUB = 0x32,

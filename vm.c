@@ -172,6 +172,14 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				e_stack_push(&vm->stack, e_create_number(s2.val.val == s1.val.val));
 			} else goto error;
 			break;
+		case E_OP_NOTEQ:
+			// PUSH (s[-1] != s[-2])
+			s1 = e_stack_pop(&vm->stack);
+			s2 = e_stack_pop(&vm->stack);
+			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
+				e_stack_push(&vm->stack, e_create_number(s2.val.val != s1.val.val));
+			} else goto error;
+			break;
 		case E_OP_LT:
 			// PUSH (s[-1] < s[-2])
 			s1 = e_stack_pop(&vm->stack);
@@ -435,6 +443,7 @@ e_create_string(const char* str) {
 
 /* Built-ins */
 uint32_t e_builtin_print(e_vm* vm, uint32_t arglen) {
+	(void)arglen;
 	e_stack_status_ret s1;
 
 	s1 = e_stack_pop(&vm->stack);
