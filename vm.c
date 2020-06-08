@@ -7,6 +7,8 @@
 #include "vm.h"
 
 static void fail(const char* msg);
+static uint8_t e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen);
+static void e_serialize_value(e_value v, uint8_t bytes[], uint32_t* blen);
 
 #define E_DEBUG 0
 #define E_DEBUG_PRINT_TABLES 0
@@ -19,6 +21,8 @@ e_vm_init(e_vm* vm) {
 	e_stack_init(&vm->stack, E_STACK_SIZE);
 	e_stack_init(&vm->globals, E_STACK_SIZE);
 	e_stack_init(&vm->locals, E_STACK_SIZE);
+	vm->pupo_is_data = 0;
+	vm->dscnt = 0;
 	vm->status = E_VM_STATUS_READY;
 }
 
@@ -26,9 +30,12 @@ e_vm_status
 e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 	if(blen == 0) return E_VM_STATUS_EOF;
 
+	printf("** Parsing %d bytes **\n", blen);
+
 	// Copy data segment
 	//memcpy(&vm->ds, &bytes[E_OUT_SIZE], E_OUT_DS_SIZE);
 	memcpy(&vm->ds, bytes, blen);
+	vm->dscnt = blen;
 
 	do {
 #if E_DEBUG
@@ -92,17 +99,38 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_PUSHG:
 			// Add value of pop([s-1]) to global symbol stack at index u32(op1)
-			s1 = e_stack_pop(&vm->stack);
-			if(s1.status == E_STATUS_OK) {
+			if(vm->pupo_is_data) {
+				printf("PUSHG is data with %d entries\n", vm->pupo_is_data);
+
+				e_value tmp_arr[E_MAX_ARRAYSIZE];
+				uint32_t arr_len = vm->pupo_is_data;
+				uint32_t e = arr_len - 1;
+				do {
+					s1 = e_stack_pop(&vm->stack);
+					if(s1.status == E_STATUS_OK) {
+						tmp_arr[e] = s1.val;
+					} else goto error;
+					e--;
+				} while((vm->pupo_is_data--) - 1);
+
+				e_value arr_ptr = e_create_array(vm, tmp_arr, arr_len);
+
+				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, s1.val, d_op);
+				if (s.status != E_STATUS_OK) goto error;
+				vm->pupo_is_data = 0;
+			} else {
+				s1 = e_stack_pop(&vm->stack);
+				if(s1.status == E_STATUS_OK) {
 #if E_DEBUG
-				printf("Storing value %f to global stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
+					printf("Storing value %f to global stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
 #endif
-				if(instr.op2 == E_ARGT_STRING) {
-					s1.val.argtype = E_STRING;
-				}
-				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals,  s1.val, d_op);
-				if(s.status != E_STATUS_OK) goto error;
-			} else goto error;
+					if (instr.op2 == E_ARGT_STRING) {
+						s1.val.argtype = E_STRING;
+					}
+					e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, s1.val, d_op);
+					if (s.status != E_STATUS_OK) goto error;
+				} else goto error;
+			}
 			break;
 		case E_OP_POPG:
 			// Find value [index] in global stack
@@ -161,6 +189,13 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					vm->ip = vm->ip + d_op;
 				} else goto error;
 			}
+			break;
+		case E_OP_DATA:
+			// TODO: Next PUSH(G|L) operation needs to pop [d_op] entries from stack instead of a single one
+			// TODO: Next PUSH(G|L) operation needs to create entry of type 'DATA/ARRAY'
+			// TODO: We need to store this information on the stack? or in a helper variable
+			vm->pupo_is_data = d_op;
+			printf("Next %d entries from stack are data\n", vm->pupo_is_data);
 			break;
 		case E_OP_POP:
 			break;
@@ -439,6 +474,59 @@ e_create_string(const char* str) {
 	new_str.slen = strlen(str);
 
 	return (e_value) { .sval = new_str, .argtype = E_ARGT_STRING };
+}
+
+e_value
+e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen) {
+	e_array_type new_arr;
+	// TODO: Copy arr to data segment
+	uint8_t s = e_copy_arr_to_ds(vm, arr, arrlen);
+	// new_arr.aptr =
+	// fail("Cannot copy bytes to ds\n");
+}
+
+uint8_t
+e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen) {
+	if(vm->dscnt + arrlen > E_OUT_DS_SIZE) {
+		return 0;
+	}
+
+	for(uint32_t e = 0; e < arrlen && e < E_MAX_ARRAYSIZE; e++) {
+		uint8_t bytes[E_MAX_STRLEN];
+		uint32_t blen = 0;
+		e_serialize_value(arr[e], bytes, &blen);
+		if(blen > 0 && blen <= E_MAX_ARRAYSIZE) {
+			memcpy(&vm->ds[vm->dscnt++], bytes, blen);
+		} else{
+			return 0;
+		}
+	}
+	return 1;
+}
+
+void e_serialize_value(e_value v, uint8_t bytes[], uint32_t* blen) {
+	switch(v.argtype) {
+		case E_NUMBER:
+			{
+				union {
+					uint8_t u[4];
+					double d;
+				} conv = {
+						.u = v.val
+				};
+				printf("%X.%X.%X.%X.\n", conv.u[0], conv.u[1], conv.u[2], conv.u[3]);
+			}
+			break;
+		case E_STRING:
+			break;
+		case E_ARRAY:
+			break;
+		default:
+			*blen = 0;
+			return;
+	}
+
+	*blen = 3;
 }
 
 /* Built-ins */

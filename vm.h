@@ -9,11 +9,12 @@
 
 #define	E_STACK_SIZE ((uint32_t)1024)
 #define	E_INSTR_BYTES ((uint32_t)9)
-#define E_OUT_DS_SIZE       ((int)0/*500*/)	// FIXME
+#define E_OUT_DS_SIZE       ((int)500)	// FIXME
 #define E_OUT_SIZE          ((int)0/*2000*/)	// FIXME
 #define E_OUT_TOTAL_SIZE    ((int)E_OUT_DS_SIZE + E_OUT_SIZE)
 
 #define E_MAX_STRLEN    ((int)1024)
+#define E_MAX_ARRAYSIZE ((int)512)
 typedef enum {
 	E_ARGT_NULL = 2,
 	E_ARGT_NUMBER = 0,
@@ -53,11 +54,17 @@ typedef struct {
 } e_str_type;
 
 typedef struct {
+	uint8_t** aptr;
+	uint32_t alen;
+} e_array_type;
+
+typedef struct {
 	union {
 		double val;
 		e_str_type sval;
+		e_array_type aval;
 	};
-	enum {E_NUMBER, E_STRING } argtype;
+	enum {E_NUMBER, E_STRING, E_ARRAY } argtype;
 } e_value;
 
 // Stack
@@ -79,7 +86,11 @@ typedef struct {
 	e_stack globals;
 	e_stack locals;
 	e_vm_status status;
+
 	uint8_t ds[E_OUT_DS_SIZE];
+	uint32_t dscnt;
+
+	uint8_t pupo_is_data;
 } e_vm;
 
 // OPCODES
@@ -92,6 +103,7 @@ typedef enum {
 	E_OP_PUSH = 0x14,      /* Push variable onto top of stack,         PUSH 3                              	*/
 	E_OP_POP = 0x15,       /* Pop variable from top of stack,          POP,                s[-1]           	*/
 	E_OP_PUSHS = 0x16,	   /* Push string 							   PUSHS [ascii byte(s)] 				*/
+	E_OP_DATA = 0x17,	   /* Size of following data segment,		   DATA [entries]	   s[-entries]		*/
 
 	E_OP_EQ = 0x20,        /* Equal check,                             EQ,                 s[-1]==s[-2]    	*/
 	E_OP_LT = 0x21,        /* Less than,                               LT,                 s[-1]<s[-2]     	*/
@@ -131,6 +143,7 @@ e_vm_status e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen);
 e_vm_status e_vm_evaluate_instr(e_vm* vm, e_instr instr);
 e_value e_create_number(double n);
 e_value e_create_string(const char* str);
+e_value e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen);
 
 // Stack
 void e_stack_init(e_stack* stack, uint32_t size);

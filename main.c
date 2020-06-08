@@ -27,7 +27,6 @@ int main(int argc, char** argv) {
 	}
 
 	e_vm_init(&context);
-	printf("** Parsing %d bytes **\n", bCnt);
 	e_vm_parse_bytes(&context, bytes_in, bCnt /*sizeof(bytes_in) / sizeof(uint8_t)*/);
 
 	return 0;
