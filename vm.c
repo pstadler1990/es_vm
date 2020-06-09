@@ -7,8 +7,9 @@
 #include "vm.h"
 
 static void fail(const char* msg);
-static uint8_t e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen);
-static void e_serialize_value(e_value v, uint8_t bytes[], uint32_t* blen);
+static uint8_t e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t* arrptr);
+static void e_serialize_value(e_value v, uint8_t bytes[], uint32_t buflen, uint32_t* blen);
+static uint8_t e_find_value_in_arr(const e_vm* vm, const e_value* arr, uint32_t index, e_value* vptr);
 
 #define E_DEBUG 0
 #define E_DEBUG_PRINT_TABLES 0
@@ -113,9 +114,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					e--;
 				} while((vm->pupo_is_data--) - 1);
 
-				e_value arr_ptr = e_create_array(vm, tmp_arr, arr_len);
+				e_value arr = e_create_array(vm, tmp_arr, arr_len);
 
-				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, s1.val, d_op);
+				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, arr, d_op);
 				if (s.status != E_STATUS_OK) goto error;
 				vm->pupo_is_data = 0;
 			} else {
@@ -196,6 +197,19 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			// TODO: We need to store this information on the stack? or in a helper variable
 			vm->pupo_is_data = d_op;
 			printf("Next %d entries from stack are data\n", vm->pupo_is_data);
+			break;
+		case E_OP_PUSHA:
+			s1 = e_stack_pop(&vm->stack);
+			s2 = e_stack_pop(&vm->stack);
+			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
+				if(s1.val.argtype == E_ARRAY && s2.val.argtype == E_NUMBER) {
+					printf("Accessing array at element %f\n", s2.val.val);
+					// TODO: Find value in array and push it onto stack
+					e_value vptr;
+					e_find_value_in_arr(vm, &s1.val, s2.val.val, &vptr);
+					printf("Value: %f\n", vptr.val);
+				}
+			} else goto error;
 			break;
 		case E_OP_POP:
 			break;
@@ -479,42 +493,108 @@ e_create_string(const char* str) {
 e_value
 e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen) {
 	e_array_type new_arr;
-	// TODO: Copy arr to data segment
-	uint8_t s = e_copy_arr_to_ds(vm, arr, arrlen);
-	// new_arr.aptr =
-	// fail("Cannot copy bytes to ds\n");
+	// Copy arr to data segment
+	uint8_t s = e_copy_arr_to_ds(vm, arr, arrlen, (uint32_t *) &new_arr.aptr);
+	if(!s) {
+		fail("Cannot copy bytes to ds\n");
+		return (e_value) {0};
+	}
+	return (e_value) { .argtype = E_ARRAY, .aval.aptr = new_arr.aptr, .aval.alen = arrlen };
 }
 
 uint8_t
-e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen) {
+e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t* arrptr) {
 	if(vm->dscnt + arrlen > E_OUT_DS_SIZE) {
 		return 0;
 	}
-
+	*arrptr = vm->dscnt;
 	for(uint32_t e = 0; e < arrlen && e < E_MAX_ARRAYSIZE; e++) {
 		uint8_t bytes[E_MAX_STRLEN];
 		uint32_t blen = 0;
-		e_serialize_value(arr[e], bytes, &blen);
+		e_serialize_value(arr[e], bytes, E_MAX_STRLEN, &blen);
 		if(blen > 0 && blen <= E_MAX_ARRAYSIZE) {
-			memcpy(&vm->ds[vm->dscnt++], bytes, blen);
+			vm->ds[vm->dscnt] = arr[e].argtype;
+			memcpy(&vm->ds[++vm->dscnt], bytes, blen);
+			vm->dscnt += blen;
 		} else{
+			*arrptr = 0;
 			return 0;
 		}
 	}
 	return 1;
 }
 
-void e_serialize_value(e_value v, uint8_t bytes[], uint32_t* blen) {
+uint8_t
+e_find_value_in_arr(const e_vm* vm, const e_value* arr, uint32_t index, e_value* vptr) {
+#define SIZE ((sizeof(double)))
+	if(!arr || arr->argtype != E_ARRAY || index > arr->aval.alen) {
+		return 0;
+	}
+	uint32_t cindex = 0;
+	uint32_t cbyte = 0;
+	uint8_t rettype = 0;
+	uint8_t indexFound = 0;
+
+	while(!indexFound && cbyte < E_OUT_DS_SIZE && cindex < arr->aval.alen){
+		uint32_t ctype = vm->ds[arr->aval.aptr + cbyte];
+		cbyte++;
+		switch(ctype) {
+			case E_NUMBER:
+				cbyte += 8;
+				rettype = E_NUMBER;
+				break;
+			case E_STRING:
+				rettype = E_STRING;
+				// TODO: Strings are currently not supported within arrays
+				break;
+			case E_ARRAY:
+			default:
+				fail("Unsupported array element");
+				return 0;
+		}
+		if(cindex == index) {
+			indexFound = 1;
+		} else {
+			cindex += 1;
+		}
+	}
+
+	if(indexFound) {
+		if(rettype == E_NUMBER) {
+			union {
+				uint8_t u[SIZE];
+				double d;
+			} conv;
+
+			memcpy(conv.u, &vm->ds[arr->aval.aptr + (cbyte - 8)], 8);
+			vptr->val = conv.d;
+			vptr->argtype = E_NUMBER;
+			return 1;
+		}
+	} else {
+		fail("Array out of bounds");
+	}
+	return 0;
+}
+
+void e_serialize_value(e_value v, uint8_t bytes[], uint32_t buflen, uint32_t* blen) {
+#define SIZE ((sizeof(double)))
 	switch(v.argtype) {
 		case E_NUMBER:
 			{
 				union {
-					uint8_t u[4];
+					uint8_t u[SIZE];
 					double d;
 				} conv = {
-						.u = v.val
+						.d = v.val
 				};
-				printf("%X.%X.%X.%X.\n", conv.u[0], conv.u[1], conv.u[2], conv.u[3]);
+				if(buflen >= SIZE) {
+					*blen = SIZE;
+					for(uint32_t i = 0; i < SIZE; i++) {
+						bytes[i] = conv.u[i];
+					}
+					return;
+				}
 			}
 			break;
 		case E_STRING:
@@ -525,8 +605,6 @@ void e_serialize_value(e_value v, uint8_t bytes[], uint32_t* blen) {
 			*blen = 0;
 			return;
 	}
-
-	*blen = 3;
 }
 
 /* Built-ins */
