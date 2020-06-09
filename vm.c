@@ -203,11 +203,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			s2 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
 				if(s1.val.argtype == E_ARRAY && s2.val.argtype == E_NUMBER) {
-					printf("Accessing array at element %f\n", s2.val.val);
-					// TODO: Find value in array and push it onto stack
 					e_value vptr;
 					e_find_value_in_arr(vm, &s1.val, s2.val.val, &vptr);
-					printf("Value: %f\n", vptr.val);
+					e_stack_push(&vm->stack, vptr);
 				}
 			} else goto error;
 			break;
@@ -337,8 +335,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					&& (s1.val.argtype != s2.val.argtype)) {
 					// s1 or s2 contains string and
 					// s1 or s2 contains number
-					e_vm_status s;
-					uint32_t slen = 0;
 					char buf[E_MAX_STRLEN];
 					char num_buf[E_MAX_STRLEN];
 
@@ -487,7 +483,7 @@ e_create_string(const char* str) {
 	new_str.sval = (uint8_t*)strdup(str);
 	new_str.slen = strlen(str);
 
-	return (e_value) { .sval = new_str, .argtype = E_ARGT_STRING };
+	return (e_value) { .sval = new_str, .argtype = E_STRING };
 }
 
 e_value
@@ -624,6 +620,7 @@ uint32_t e_builtin_print(e_vm* vm, uint32_t arglen) {
 
 void
 e_debug_dump_stack(const e_vm* vm, const e_stack* tab) {
+	(void)vm;
 #define E_DEBUG_OUT	10
 	for(unsigned int i = 0; i < tab->size && i < E_DEBUG_OUT; i++) {
 		const e_value cur = tab->entries[i];
