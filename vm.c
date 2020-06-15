@@ -10,6 +10,7 @@ static void fail(const char* msg);
 static uint8_t e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t* arrptr);
 static void e_serialize_value(e_value v, uint8_t bytes[], uint32_t buflen, uint32_t* blen);
 static uint8_t e_find_value_in_arr(const e_vm* vm, const e_value* arr, uint32_t index, e_value* vptr);
+uint8_t e_change_value_in_arr(e_vm* vm, e_value* arr, uint32_t index, e_value v);
 
 #define E_DEBUG 0
 #define E_DEBUG_PRINT_TABLES 0
@@ -24,6 +25,10 @@ e_vm_init(e_vm* vm) {
 	e_stack_init(&vm->locals, E_STACK_SIZE);
 	vm->pupo_is_data = 0;
 	vm->dscnt = 0;
+	for(uint32_t i = 0; i < E_MAX_ARRAYS; i++) {
+		vm->arrays[i] = NULL;
+	}
+	vm->acnt = 0;
 	vm->status = E_VM_STATUS_READY;
 }
 
@@ -34,7 +39,6 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 	printf("** Parsing %d bytes **\n", blen);
 
 	// Copy data segment
-	//memcpy(&vm->ds, &bytes[E_OUT_SIZE], E_OUT_DS_SIZE);
 	memcpy(&vm->ds, bytes, blen);
 	vm->dscnt = blen;
 
@@ -115,10 +119,10 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				} while((vm->pupo_is_data--) - 1);
 
 				e_value arr = e_create_array(vm, tmp_arr, arr_len);
-
 				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, arr, d_op);
-				if (s.status != E_STATUS_OK) goto error;
 				vm->pupo_is_data = 0;
+
+				if (s.status != E_STATUS_OK) goto error;
 			} else {
 				s1 = e_stack_pop(&vm->stack);
 				if(s1.status == E_STATUS_OK) {
@@ -148,18 +152,39 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_PUSHL:
 			// Add value of pop([s-1]) to locals symbol stack at index u32(op1)
-			s1 = e_stack_pop(&vm->stack);
-			if(s1.status == E_STATUS_OK) {
+			if(vm->pupo_is_data) {
+				printf("PUSHL is data with %d entries\n", vm->pupo_is_data);
+
+				e_value tmp_arr[E_MAX_ARRAYSIZE];
+				uint32_t arr_len = vm->pupo_is_data;
+				uint32_t e = arr_len - 1;
+				do {
+					s1 = e_stack_pop(&vm->stack);
+					if(s1.status == E_STATUS_OK) {
+						tmp_arr[e] = s1.val;
+					} else goto error;
+					e--;
+				} while((vm->pupo_is_data--) - 1);
+
+				e_value arr = e_create_array(vm, tmp_arr, arr_len);
+				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals, arr, d_op);
+				vm->pupo_is_data = 0;
+
+				if (s.status != E_STATUS_OK) goto error;
+			} else {
+				s1 = e_stack_pop(&vm->stack);
+				if (s1.status == E_STATUS_OK) {
 #if E_DEBUG
-				if(instr.op2 == E_ARGT_STRING) {
-					printf("Storing value %s to local stack [%d] (type: %d)\n", s1.val.sval.sval, instr.op1, instr.op2);
-				} else if(instr.op2 == E_ARGT_NUMBER) {
-					printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
-				}
+					if(instr.op2 == E_ARGT_STRING) {
+						printf("Storing value %s to local stack [%d] (type: %d)\n", s1.val.sval.sval, instr.op1, instr.op2);
+					} else if(instr.op2 == E_ARGT_NUMBER) {
+						printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
+					}
 #endif
-				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals,  s1.val, d_op);
-				if(s.status != E_STATUS_OK) goto error;
-			} else goto error;
+					e_stack_status_ret s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
+					if (s.status != E_STATUS_OK) goto error;
+				} else goto error;
+			}
 			break;
 		case E_OP_POPL:
 			// Find value [index] in local stack
@@ -180,7 +205,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_PUSHS:
 			// Push string onto stack
-			// d_op = string length
 			{
 				char tmp_str[E_MAX_STRLEN];
 				if(d_op < E_MAX_STRLEN - 1) {
@@ -192,22 +216,26 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			}
 			break;
 		case E_OP_DATA:
-			// TODO: Next PUSH(G|L) operation needs to pop [d_op] entries from stack instead of a single one
-			// TODO: Next PUSH(G|L) operation needs to create entry of type 'DATA/ARRAY'
-			// TODO: We need to store this information on the stack? or in a helper variable
 			vm->pupo_is_data = d_op;
 			printf("Next %d entries from stack are data\n", vm->pupo_is_data);
 			break;
 		case E_OP_PUSHA:
-			s1 = e_stack_pop(&vm->stack);
-			s2 = e_stack_pop(&vm->stack);
-			if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
-				if(s1.val.argtype == E_ARRAY && s2.val.argtype == E_NUMBER) {
-					e_value vptr;
-					e_find_value_in_arr(vm, &s1.val, s2.val.val, &vptr);
-					e_stack_push(&vm->stack, vptr);
-				}
-			} else goto error;
+			{
+				e_stack_status_ret s3;
+
+				s1 = e_stack_pop(&vm->stack);	// identifier
+				s2 = e_stack_pop(&vm->stack);	// index
+				s3 = e_stack_pop(&vm->stack);	// new value
+
+				// TODO: Reimplement array logic with structured lists (linked lists)
+				printf("Array assignment / retrieve\n");
+
+				// if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK && s3.status == E_STATUS_OK) {
+				//	if(s1.val.argtype == E_ARRAY && s2.val.argtype == E_NUMBER) {
+				//		e_change_value_in_arr(vm, &s1.val, s2.val.val, s3.val);
+				//	}
+				// } else goto error;
+			}
 			break;
 		case E_OP_POP:
 			break;
@@ -489,13 +517,18 @@ e_create_string(const char* str) {
 e_value
 e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen) {
 	e_array_type new_arr;
-	// Copy arr to data segment
-	uint8_t s = e_copy_arr_to_ds(vm, arr, arrlen, (uint32_t *) &new_arr.aptr);
-	if(!s) {
-		fail("Cannot copy bytes to ds\n");
+
+	if(vm->acnt + 1 >= E_MAX_ARRAYS) {
+		fail("Cannot initialize another array");
 		return (e_value) {0};
 	}
-	return (e_value) { .argtype = E_ARRAY, .aval.aptr = new_arr.aptr, .aval.alen = arrlen };
+
+	for(uint32_t i = 0; i < arrlen && i < E_MAX_ARRAYSIZE; i++) {
+		// TODO: Insert into linked list
+		// list = &vm->arrays[vm->acnt]
+	}
+
+	return (e_value) { .argtype = E_ARRAY, .aval.aptr = vm->acnt++, .aval.alen = arrlen };
 }
 
 uint8_t
@@ -522,54 +555,19 @@ e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t* arrptr) {
 
 uint8_t
 e_find_value_in_arr(const e_vm* vm, const e_value* arr, uint32_t index, e_value* vptr) {
-#define SIZE ((sizeof(double)))
-	if(!arr || arr->argtype != E_ARRAY || index > arr->aval.alen) {
-		return 0;
-	}
-	uint32_t cindex = 0;
-	uint32_t cbyte = 0;
-	uint8_t rettype = 0;
-	uint8_t indexFound = 0;
+	(void)vm;
+	(void)arr;
+	(void)index;
+	(void)vptr;
+	return 0;
+}
 
-	while(!indexFound && cbyte < E_OUT_DS_SIZE && cindex < arr->aval.alen){
-		uint32_t ctype = vm->ds[arr->aval.aptr + cbyte];
-		cbyte++;
-		switch(ctype) {
-			case E_NUMBER:
-				cbyte += 8;
-				rettype = E_NUMBER;
-				break;
-			case E_STRING:
-				rettype = E_STRING;
-				// TODO: Strings are currently not supported within arrays
-				break;
-			case E_ARRAY:
-			default:
-				fail("Unsupported array element");
-				return 0;
-		}
-		if(cindex == index) {
-			indexFound = 1;
-		} else {
-			cindex += 1;
-		}
-	}
-
-	if(indexFound) {
-		if(rettype == E_NUMBER) {
-			union {
-				uint8_t u[SIZE];
-				double d;
-			} conv;
-
-			memcpy(conv.u, &vm->ds[arr->aval.aptr + (cbyte - 8)], 8);
-			vptr->val = conv.d;
-			vptr->argtype = E_NUMBER;
-			return 1;
-		}
-	} else {
-		fail("Array out of bounds");
-	}
+uint8_t
+e_change_value_in_arr(e_vm* vm, e_value* arr, uint32_t index, e_value v) {
+	(void)vm;
+	(void)arr;
+	(void)index;
+	(void)v;
 	return 0;
 }
 

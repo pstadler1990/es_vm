@@ -7,14 +7,16 @@
 
 #include <stdint.h>
 
-#define	E_STACK_SIZE ((uint32_t)1024)
-#define	E_INSTR_BYTES ((uint32_t)9)
+#define	E_STACK_SIZE 		((uint32_t)1024)
+#define	E_INSTR_BYTES 		((uint32_t)9)
 #define E_OUT_DS_SIZE       ((int)500)	// FIXME
 #define E_OUT_SIZE          ((int)0/*2000*/)	// FIXME
 #define E_OUT_TOTAL_SIZE    ((int)E_OUT_DS_SIZE + E_OUT_SIZE)
 
 #define E_MAX_STRLEN    ((int)1024)
 #define E_MAX_ARRAYSIZE ((int)512)
+#define E_MAX_ARRAYS 	((int)8)
+
 typedef enum {
 	E_ARGT_NULL = 2,
 	E_ARGT_NUMBER = 0,
@@ -67,6 +69,12 @@ typedef struct {
 	enum {E_NUMBER = 10, E_STRING = 20, E_ARRAY = 30} argtype;
 } e_value;
 
+// Array type
+typedef struct array_entry {
+	struct array_entry* next;
+	e_value v;
+} e_array_entry;
+
 // Stack
 typedef struct {
 	e_value entries[E_STACK_SIZE];
@@ -91,6 +99,8 @@ typedef struct {
 	uint32_t dscnt;
 
 	uint8_t pupo_is_data;
+	e_array_entry* arrays[E_MAX_ARRAYS];
+	uint32_t acnt;
 } e_vm;
 
 // OPCODES
