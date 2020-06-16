@@ -7,10 +7,9 @@
 #include "vm.h"
 
 static void fail(const char* msg);
-static uint8_t e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t* arrptr);
-static void e_serialize_value(e_value v, uint8_t bytes[], uint32_t buflen, uint32_t* blen);
-static uint8_t e_find_value_in_arr(const e_vm* vm, const e_value* arr, uint32_t index, e_value* vptr);
-uint8_t e_change_value_in_arr(e_vm* vm, e_value* arr, uint32_t index, e_value v);
+static uint8_t e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr);
+static uint8_t e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v);
+static uint8_t e_array_append(e_vm* vm, uint32_t aptr, e_value v);
 
 #define E_DEBUG 0
 #define E_DEBUG_PRINT_TABLES 0
@@ -26,7 +25,9 @@ e_vm_init(e_vm* vm) {
 	vm->pupo_is_data = 0;
 	vm->dscnt = 0;
 	for(uint32_t i = 0; i < E_MAX_ARRAYS; i++) {
-		vm->arrays[i] = NULL;
+		for(uint32_t e = 0; e < E_MAX_ARRAYSIZE; e++) {
+			vm->arrays[i][e] = (e_array_entry) { .v = { 0 }, .used = 0 };
+		}
 	}
 	vm->acnt = 0;
 	vm->status = E_VM_STATUS_READY;
@@ -66,7 +67,7 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 
 		e_vm_status es = e_vm_evaluate_instr(vm, cur_instr);
 		if(es != E_VM_STATUS_OK) {
-			fail("Invalid instruction or malformed arguments");
+			fail("Invalid instruction or malformed arguments - STOPPED EXECUTION");
 			return E_VM_STATUS_ERROR;
 		}
 
@@ -105,8 +106,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 		case E_OP_PUSHG:
 			// Add value of pop([s-1]) to global symbol stack at index u32(op1)
 			if(vm->pupo_is_data) {
-				printf("PUSHG is data with %d entries\n", vm->pupo_is_data);
-
 				e_value tmp_arr[E_MAX_ARRAYSIZE];
 				uint32_t arr_len = vm->pupo_is_data;
 				uint32_t e = arr_len - 1;
@@ -119,22 +118,37 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				} while((vm->pupo_is_data--) - 1);
 
 				e_value arr = e_create_array(vm, tmp_arr, arr_len);
-				e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, arr, d_op);
-				vm->pupo_is_data = 0;
+				if(arr.aval.alen == arr_len) {
+					e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, arr, d_op);
+					vm->pupo_is_data = 0;
 
-				if (s.status != E_STATUS_OK) goto error;
-			} else {
-				s1 = e_stack_pop(&vm->stack);
-				if(s1.status == E_STATUS_OK) {
-#if E_DEBUG
-					printf("Storing value %f to global stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
-#endif
-					if (instr.op2 == E_ARGT_STRING) {
-						s1.val.argtype = E_STRING;
-					}
-					e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, s1.val, d_op);
 					if (s.status != E_STATUS_OK) goto error;
 				} else goto error;
+			} else {
+					e_stack_status_ret s_peek = e_stack_peek_index(&vm->globals, d_op);
+					if(s_peek.val.argtype == E_ARRAY) {
+						/* Array access based on index */
+						e_stack_status_ret s_index = e_stack_pop(&vm->stack);
+						e_stack_status_ret s_value = e_stack_pop(&vm->stack);
+						if(s_index.status == E_STATUS_OK && s_value.status == E_STATUS_OK) {
+							e_change_value_in_arr(vm, s_peek.val.aval.aptr, s_index.val.val, s_value.val);
+						} else {
+							fail("Array out of bounds");
+							goto error;
+						}
+					} else {
+						s1 = e_stack_pop(&vm->stack);
+						if(s1.status == E_STATUS_OK) {
+#if E_DEBUG
+							printf("Storing value %f to global stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
+#endif
+						if (instr.op2 == E_ARGT_STRING) {
+							s1.val.argtype = E_STRING;
+						}
+						e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, s1.val, d_op);
+						if (s.status != E_STATUS_OK) goto error;
+					} else goto error;
+				}
 			}
 			break;
 		case E_OP_POPG:
@@ -145,16 +159,28 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 #if E_DEBUG
 					printf("Loading global from index %d -> %f\n", instr.op1, s.val.val);
 #endif
-					// Push this value onto the vm->stack
-					e_stack_push(&vm->stack, s.val);
+					if(s.val.argtype == E_ARRAY) {
+						/* Array access based on index */
+						e_stack_status_ret s_index = e_stack_pop(&vm->stack);
+						if(s.status == E_STATUS_OK) {
+							e_value v;
+							if(e_find_value_in_arr(vm, s.val.aval.aptr, s_index.val.val, &v)) {
+								e_stack_push(&vm->stack, v);
+							} else {
+								/* Out of bounds */
+								fail("Array out of bounds");
+							}
+						} else goto error;
+					} else {
+						// Push this value onto the vm->stack
+						e_stack_push(&vm->stack, s.val);
+					}
 				} else goto error;
 			}
 			break;
 		case E_OP_PUSHL:
 			// Add value of pop([s-1]) to locals symbol stack at index u32(op1)
 			if(vm->pupo_is_data) {
-				printf("PUSHL is data with %d entries\n", vm->pupo_is_data);
-
 				e_value tmp_arr[E_MAX_ARRAYSIZE];
 				uint32_t arr_len = vm->pupo_is_data;
 				uint32_t e = arr_len - 1;
@@ -172,30 +198,58 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 				if (s.status != E_STATUS_OK) goto error;
 			} else {
-				s1 = e_stack_pop(&vm->stack);
-				if (s1.status == E_STATUS_OK) {
-#if E_DEBUG
-					if(instr.op2 == E_ARGT_STRING) {
-						printf("Storing value %s to local stack [%d] (type: %d)\n", s1.val.sval.sval, instr.op1, instr.op2);
-					} else if(instr.op2 == E_ARGT_NUMBER) {
-						printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
+				e_stack_status_ret s_peek = e_stack_peek_index(&vm->locals, d_op);
+				if(s_peek.val.argtype == E_ARRAY) {
+					/* Array access based on index */
+					e_stack_status_ret s_index = e_stack_pop(&vm->stack);
+					e_stack_status_ret s_value = e_stack_pop(&vm->stack);
+					if(s_index.status == E_STATUS_OK && s_value.status == E_STATUS_OK) {
+						e_change_value_in_arr(vm, s_peek.val.aval.aptr, s_index.val.val, s_value.val);
+					} else {
+						fail("Array out of bounds");
+						goto error;
 					}
+				} else {
+					s1 = e_stack_pop(&vm->stack);
+					if (s1.status == E_STATUS_OK) {
+#if E_DEBUG
+						if(instr.op2 == E_ARGT_STRING) {
+							printf("Storing value %s to local stack [%d] (type: %d)\n", s1.val.sval.sval, instr.op1, instr.op2);
+						} else if(instr.op2 == E_ARGT_NUMBER) {
+							printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
+						}
 #endif
-					e_stack_status_ret s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
-					if (s.status != E_STATUS_OK) goto error;
-				} else goto error;
+						e_stack_status_ret s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
+						if (s.status != E_STATUS_OK) goto error;
+					} else goto error;
+				}
 			}
 			break;
 		case E_OP_POPL:
 			// Find value [index] in local stack
 			{
 				e_stack_status_ret s = e_stack_peek_index(&vm->locals, d_op);
+				// TODO: Add array access (see POPG)
 				if(s.status == E_STATUS_OK) {
 #if E_DEBUG
 					printf("Loading local from index %d -> %f\n", instr.op1, s.val.val);
 #endif
-					// Push this value onto the vm->stack
-					e_stack_push(&vm->stack, s.val);
+					if(s.val.argtype == E_ARRAY) {
+						/* Array access based on index */
+						e_stack_status_ret s_index = e_stack_pop(&vm->stack);
+						if(s.status == E_STATUS_OK) {
+							e_value v;
+							if(e_find_value_in_arr(vm, s.val.aval.aptr, s_index.val.val, &v)) {
+								e_stack_push(&vm->stack, v);
+							} else {
+								/* Out of bounds */
+								fail("Array out of bounds");
+							}
+						} else goto error;
+					} else {
+						// Push this value onto the vm->stack
+						e_stack_push(&vm->stack, s.val);
+					}
 				} else goto error;
 			}
 			break;
@@ -217,7 +271,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_DATA:
 			vm->pupo_is_data = d_op;
-			printf("Next %d entries from stack are data\n", vm->pupo_is_data);
 			break;
 		case E_OP_PUSHA:
 			{
@@ -516,90 +569,55 @@ e_create_string(const char* str) {
 
 e_value
 e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen) {
-	e_array_type new_arr;
-
 	if(vm->acnt + 1 >= E_MAX_ARRAYS) {
 		fail("Cannot initialize another array");
 		return (e_value) {0};
 	}
 
 	for(uint32_t i = 0; i < arrlen && i < E_MAX_ARRAYSIZE; i++) {
-		// TODO: Insert into linked list
-		// list = &vm->arrays[vm->acnt]
+		uint8_t s = e_array_append(vm, vm->acnt, arr[i]);
+		if(!s) {
+			return (e_value) { 0 };
+		}
 	}
 
 	return (e_value) { .argtype = E_ARRAY, .aval.aptr = vm->acnt++, .aval.alen = arrlen };
 }
 
 uint8_t
-e_copy_arr_to_ds(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t* arrptr) {
-	if(vm->dscnt + arrlen > E_OUT_DS_SIZE) {
-		return 0;
-	}
-	*arrptr = vm->dscnt;
-	for(uint32_t e = 0; e < arrlen && e < E_MAX_ARRAYSIZE; e++) {
-		uint8_t bytes[E_MAX_STRLEN];
-		uint32_t blen = 0;
-		e_serialize_value(arr[e], bytes, E_MAX_STRLEN, &blen);
-		if(blen > 0 && blen <= E_MAX_ARRAYSIZE) {
-			vm->ds[vm->dscnt] = arr[e].argtype;
-			memcpy(&vm->ds[++vm->dscnt], bytes, blen);
-			vm->dscnt += blen;
-		} else{
-			*arrptr = 0;
+e_array_append(e_vm* vm, uint32_t aptr, e_value v) {
+	if(aptr >= E_MAX_ARRAYS) return 0;
+
+	uint32_t e = 0;
+	while(vm->arrays[aptr][e].used) {
+		if(++e >= E_MAX_ARRAYSIZE) {
 			return 0;
 		}
 	}
+	vm->arrays[aptr][e].v = v;
+	vm->arrays[aptr][e].used = 1;
 	return 1;
 }
 
 uint8_t
-e_find_value_in_arr(const e_vm* vm, const e_value* arr, uint32_t index, e_value* vptr) {
-	(void)vm;
-	(void)arr;
-	(void)index;
-	(void)vptr;
-	return 0;
+e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr) {
+	if(aptr >= E_MAX_ARRAYS || index >= E_MAX_ARRAYSIZE) return 0;
+
+	e_array_entry e = vm->arrays[aptr][index];
+	*vptr = e.v;
+	return e.used;
 }
 
 uint8_t
-e_change_value_in_arr(e_vm* vm, e_value* arr, uint32_t index, e_value v) {
-	(void)vm;
-	(void)arr;
-	(void)index;
-	(void)v;
+e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v) {
+	if(aptr >= E_MAX_ARRAYS || index >= E_MAX_ARRAYSIZE) return 0;
+
+	if(vm->arrays[aptr][index].used) {
+		vm->arrays[aptr][index].v = v;
+	}
 	return 0;
 }
 
-void e_serialize_value(e_value v, uint8_t bytes[], uint32_t buflen, uint32_t* blen) {
-#define SIZE ((sizeof(double)))
-	switch(v.argtype) {
-		case E_NUMBER:
-			{
-				union {
-					uint8_t u[SIZE];
-					double d;
-				} conv = {
-						.d = v.val
-				};
-				if(buflen >= SIZE) {
-					*blen = SIZE;
-					for(uint32_t i = 0; i < SIZE; i++) {
-						bytes[i] = conv.u[i];
-					}
-					return;
-				}
-			}
-			break;
-		case E_STRING:
-			break;
-		case E_ARRAY:
-			break;
-		default:
-			*blen = 0;
-			return;
-	}
-}
 
 /* Built-ins */
 uint32_t e_builtin_print(e_vm* vm, uint32_t arglen) {
@@ -639,5 +657,5 @@ e_debug_dump_stack(const e_vm* vm, const e_stack* tab) {
 
 void
 fail(const char* msg) {
-	printf("Stopped execution! %s\n", msg);
+	printf("%s\n", msg);
 }

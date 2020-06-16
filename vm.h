@@ -71,8 +71,8 @@ typedef struct {
 
 // Array type
 typedef struct array_entry {
-	struct array_entry* next;
 	e_value v;
+	uint8_t used;
 } e_array_entry;
 
 // Stack
@@ -99,7 +99,7 @@ typedef struct {
 	uint32_t dscnt;
 
 	uint8_t pupo_is_data;
-	e_array_entry* arrays[E_MAX_ARRAYS];
+	e_array_entry arrays[E_MAX_ARRAYS][E_MAX_ARRAYSIZE];
 	uint32_t acnt;
 } e_vm;
 
