@@ -114,7 +114,6 @@ typedef enum {
 	E_OP_POP = 0x15,       /* Pop variable from top of stack,          POP,                s[-1]           	*/
 	E_OP_PUSHS = 0x16,	   /* Push string 							   PUSHS [ascii byte(s)] 				*/
 	E_OP_DATA = 0x17,	   /* Size of following data segment,		   DATA [entries]	   s[-entries]		*/
-	E_OP_PUSHA = 0x18,	   /* Push value of array element,			   PUSHA			   s[-1], s[-2]	    */
 
 	E_OP_EQ = 0x20,        /* Equal check,                             EQ,                 s[-1]==s[-2]    	*/
 	E_OP_LT = 0x21,        /* Less than,                               LT,                 s[-1]<s[-2]     	*/

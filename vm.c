@@ -229,7 +229,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			// Find value [index] in local stack
 			{
 				e_stack_status_ret s = e_stack_peek_index(&vm->locals, d_op);
-				// TODO: Add array access (see POPG)
 				if(s.status == E_STATUS_OK) {
 #if E_DEBUG
 					printf("Loading local from index %d -> %f\n", instr.op1, s.val.val);
@@ -271,24 +270,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_DATA:
 			vm->pupo_is_data = d_op;
-			break;
-		case E_OP_PUSHA:
-			{
-				e_stack_status_ret s3;
-
-				s1 = e_stack_pop(&vm->stack);	// identifier
-				s2 = e_stack_pop(&vm->stack);	// index
-				s3 = e_stack_pop(&vm->stack);	// new value
-
-				// TODO: Reimplement array logic with structured lists (linked lists)
-				printf("Array assignment / retrieve\n");
-
-				// if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK && s3.status == E_STATUS_OK) {
-				//	if(s1.val.argtype == E_ARRAY && s2.val.argtype == E_NUMBER) {
-				//		e_change_value_in_arr(vm, &s1.val, s2.val.val, s3.val);
-				//	}
-				// } else goto error;
-			}
 			break;
 		case E_OP_POP:
 			break;
