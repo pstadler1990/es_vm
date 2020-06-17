@@ -10,8 +10,6 @@
 #define	E_STACK_SIZE 		((uint32_t)1024)
 #define	E_INSTR_BYTES 		((uint32_t)9)
 #define E_OUT_DS_SIZE       ((int)500)	// FIXME
-#define E_OUT_SIZE          ((int)0/*2000*/)	// FIXME
-#define E_OUT_TOTAL_SIZE    ((int)E_OUT_DS_SIZE + E_OUT_SIZE)
 
 #define E_MAX_STRLEN    ((int)1024)
 #define E_MAX_ARRAYSIZE ((int)512)
@@ -134,6 +132,7 @@ typedef enum {
 
 	E_OP_JZ = 0x40,        /* Jump if zero,                            JZ [addr]                           */
 	E_OP_JMP = 0x41,       /* unconditional jump,                      JMP [addr]                          */
+	E_OP_JFS = 0x42,	   /* Jump from stack value, 				   JFS s[s-1]						   */
 
 	E_OP_PRINT  = 0x50,    /* Print statement (debug)                  PRINT(expr)                         */
 } e_opcode;
@@ -143,9 +142,6 @@ typedef struct {
 	uint32_t op1;
 	uint32_t op2;
 } e_instr;
-
-// Built-ins
-uint32_t e_builtin_print(e_vm* vm, uint32_t arglen);
 
 // VM
 void e_vm_init(e_vm* vm);
@@ -162,8 +158,5 @@ e_stack_status_ret e_stack_pop(e_stack* stack);
 e_stack_status_ret e_stack_peek(e_stack* stack);
 e_stack_status_ret e_stack_peek_index(e_stack* stack, uint32_t index);
 e_stack_status_ret e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index);
-
-// Debug
-void e_debug_dump_stack(const e_vm* vm, const e_stack* tab);
 
 #endif //ES_VM_H
