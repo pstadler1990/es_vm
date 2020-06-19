@@ -482,13 +482,16 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					// s1 or s2 contains number
 					char buf[E_MAX_STRLEN];
 					char num_buf[E_MAX_STRLEN];
+					memset(buf, 0, E_MAX_STRLEN);
+					memset(num_buf, 0, E_MAX_STRLEN);
 
 					if(s1.val.argtype == E_NUMBER) {
-						snprintf(num_buf, E_MAX_STRLEN, "%f", s1.val.val);
-						if(s2.val.sval.slen + strlen(num_buf) > E_MAX_STRLEN) goto error;
-						memcpy(buf, (char*)s2.val.sval.sval, s2.val.sval.slen);
-						buf[s2.val.sval.slen] = 0;
+						uint32_t l1 = snprintf(num_buf, E_MAX_STRLEN, "%f", s1.val.val);
+						uint32_t len = s2.val.sval.slen + l1;
+						if(len > E_MAX_STRLEN) goto error;
 						strcat(buf, num_buf);
+						strcat(buf, (char*)s2.val.sval.sval);
+						buf[len] = 0;
 					} else {
 						snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
 						if(s1.val.sval.slen + strlen(num_buf) > E_MAX_STRLEN) goto error;
