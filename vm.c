@@ -163,7 +163,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					if(s.val.argtype == E_ARRAY) {
 						/* Array access based on index */
 						e_stack_status_ret s_index = e_stack_pop(&vm->stack);
-						if(s.status == E_STATUS_OK) {
+						if(s_index.status == E_STATUS_OK) {
 							e_value v;
 							if(e_find_value_in_arr(vm, s.val.aval.aptr, s_index.val.val, &v)) {
 								e_stack_status_ret s_push = e_stack_push(&vm->stack, v);
@@ -175,7 +175,14 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 								/* Out of bounds */
 								fail("Array out of bounds");
 							}
-						} else goto error;
+						} else {
+							/* Array pass-by-value? */
+							e_stack_status_ret s_push = e_stack_push(&vm->stack, s.val);
+							if(s_push.status == E_STATUS_NESIZE) {
+								fail("Stack overflow");
+								goto error;
+							}
+						}
 					} else {
 						// Push this value onto the vm->stack
 						e_stack_status_ret s_push = e_stack_push(&vm->stack, s.val);
@@ -257,7 +264,14 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 								/* Out of bounds */
 								fail("Array out of bounds");
 							}
-						} else goto error;
+						} else {
+							/* Array pass-by-value? */
+							e_stack_status_ret s_push = e_stack_push(&vm->stack, s.val);
+							if(s_push.status == E_STATUS_NESIZE) {
+								fail("Stack overflow");
+								goto error;
+							}
+						}
 					} else {
 						// Push this value onto the vm->stack
 						e_stack_status_ret s_push = e_stack_push(&vm->stack, s.val);
