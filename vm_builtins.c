@@ -21,7 +21,7 @@ uint32_t e_builtin_print(e_vm* vm, uint32_t arglen) {
 }
 
 uint32_t e_ext_my_external_func(e_vm* vm, uint32_t arglen) {
-	printf("Called my external func in C (passed %d arguments)\n", arglen);
+	printf("<- Called my external func in C (passed %d arguments)\n", arglen);
 
 	if(arglen > 0) {
 		e_stack_status_ret a1 = e_stack_pop(&vm->stack);

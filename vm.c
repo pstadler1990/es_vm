@@ -250,7 +250,14 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 							printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
 						}
 #endif
-						e_stack_status_ret s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
+						// TODO: Bug in recursive ?
+						e_stack_status_ret s;
+						if(vm->cfcnt > 0) {
+							s = e_stack_insert_at_index(&vm->callframes[vm->cfcnt - 1].locals, s1.val, d_op);
+						} else {
+							s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
+						}
+						// e_stack_status_ret s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
 						if (s.status != E_STATUS_OK) goto error;
 					} else goto error;
 				}
@@ -617,12 +624,21 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				s1 = e_stack_pop(&vm->stack);
 				if(s1.status == E_STATUS_OK) {
 					callframe.retAddr = s1.val.val;
-					callframe.locals = vm->locals;
+
+					// TODO: Correct?!
+					if(vm->cfcnt == 0) {
+						callframe.locals = vm->locals;
+					} else {
+						callframe.locals = vm->callframes[vm->cfcnt - 1].locals;
+					}
 					vm->callframes[vm->cfcnt] = callframe;
 
 					if(vm->cfcnt + 1 < E_MAX_CALLFRAMES) {
 						vm->cfcnt++;
-					} else goto error;
+					} else {
+						fail("Cannot create another call frame");
+						goto error;
+					}
 				} else goto error;
 
 				vm->ip = d_op;
