@@ -11,6 +11,7 @@ static void fail(const char* msg);
 static uint8_t e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr);
 static uint8_t e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v);
 static uint8_t e_array_append(e_vm* vm, uint32_t aptr, e_value v);
+static void e_dump_stack(const e_stack* stack);
 
 #define E_DEBUG 0
 #define E_DEBUG_PRINT_TABLES 0
@@ -31,6 +32,7 @@ e_vm_init(e_vm* vm) {
 		}
 	}
 	vm->acnt = 0;
+	vm->cfcnt = 0;
 	vm->status = E_VM_STATUS_READY;
 }
 
@@ -122,6 +124,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(arr.aval.alen == arr_len) {
 					e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, arr, d_op);
 					vm->pupo_is_data = 0;
+					vm->pupo_is_data = 0;
 
 					if (s.status != E_STATUS_OK) goto error;
 				} else goto error;
@@ -209,12 +212,24 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				} while((vm->pupo_is_data--) - 1);
 
 				e_value arr = e_create_array(vm, tmp_arr, arr_len);
-				e_stack_status_ret s = e_stack_insert_at_index(&vm->locals, arr, d_op);
+				e_stack_status_ret s;
+
+				if(vm->cfcnt > 0) {
+					s = e_stack_insert_at_index(&vm->callframes[vm->cfcnt - 1].locals, arr, d_op);
+				} else {
+					s = e_stack_insert_at_index(&vm->locals, arr, d_op);
+				}
 				vm->pupo_is_data = 0;
 
 				if (s.status != E_STATUS_OK) goto error;
 			} else {
-				e_stack_status_ret s_peek = e_stack_peek_index(&vm->locals, d_op);
+				e_stack_status_ret s_peek;
+
+				if(vm->cfcnt > 0) {
+					s_peek = e_stack_peek_index(&vm->callframes[vm->cfcnt - 1].locals, d_op);
+				} else {
+					s_peek = e_stack_peek_index(&vm->locals, d_op);
+				}
 				if(s_peek.val.argtype == E_ARRAY) {
 					/* Array access based on index */
 					e_stack_status_ret s_index = e_stack_pop(&vm->stack);
@@ -244,7 +259,15 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 		case E_OP_POPL:
 			// Find value [index] in local stack
 			{
-				e_stack_status_ret s = e_stack_peek_index(&vm->locals, d_op);
+				e_stack_status_ret s;
+
+				if(vm->cfcnt > 0) {
+					s = e_stack_peek_index(&vm->callframes[vm->cfcnt - 1].locals, d_op);
+				} else {
+					s = e_stack_peek_index(&vm->locals, d_op);
+				}
+
+				//e_stack_status_ret s = e_stack_peek_index(&vm->locals, d_op);
 				if(s.status == E_STATUS_OK) {
 #if E_DEBUG
 					printf("Loading local from index %d -> %f\n", instr.op1, s.val.val);
@@ -565,9 +588,44 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			vm->ip = d_op;
 			break;
 		case E_OP_JFS:
-			s1 = e_stack_pop(&vm->stack);
-			if(s1.status == E_STATUS_OK) {
-				vm->ip = s1.val.val;
+			{
+				// Get callframe
+				if(vm->cfcnt == 0) goto error;
+				e_callframe callframe = vm->callframes[vm->cfcnt - 1];
+
+				// TODO: Watch, if removing the swap destroyed anything!
+				//if(d_op > 0) {
+					/* d_op contains number of returned values (currently only 1 return value is allowed!) */
+					// first pop is returned value
+					// second pop is jump address
+				//	e_stack_swap_last(&vm->stack);
+				//}
+
+				// Close callframe
+				if(vm->cfcnt - 1 >= 0) {
+					vm->cfcnt -= 1;
+				} else goto error;
+
+				// Return addr
+				vm->ip = callframe.retAddr;
+			}
+			break;
+		case E_OP_JMPFUN:
+			// Create CallFrame
+			{
+				e_callframe callframe;
+				e_stack_status_ret s_ret = e_stack_pop(&vm->stack);
+				if(s_ret.status == E_STATUS_OK) {
+					callframe.retAddr = s_ret.val.val;
+					callframe.locals = vm->locals;
+					vm->callframes[vm->cfcnt] = callframe;
+
+					if(vm->cfcnt + 1 < E_MAX_CALLFRAMES) {
+						vm->cfcnt++;
+					} else goto error;
+				} else goto error;
+
+				vm->ip = d_op;
 			}
 			break;
 		case E_OP_PRINT:
@@ -623,12 +681,12 @@ e_stack_pop(e_stack* stack) {
 }
 
 e_stack_status_ret
-e_stack_peek(e_stack* stack) {
+e_stack_peek(const e_stack* stack) {
 	return e_stack_peek_index(stack, stack->top);
 }
 
 e_stack_status_ret
-e_stack_peek_index(e_stack* stack, uint32_t index) {
+e_stack_peek_index(const e_stack* stack, uint32_t index) {
 	if(stack == NULL) {
 		return (e_stack_status_ret) { .status = E_STATUS_NOINIT };
 	}
@@ -643,6 +701,31 @@ e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index) {
 
 	stack->entries[index] = v;
 	return (e_stack_status_ret) { .status = E_STATUS_OK };
+}
+
+e_stack_status_ret
+e_stack_swap_last(e_stack* stack) {
+	if(stack == NULL) {
+		return (e_stack_status_ret) { .status = E_STATUS_NOINIT };
+	}
+	if(stack->top < 2) {
+		return (e_stack_status_ret) { .status = E_STATUS_UNDERFLOW };
+	}
+
+	e_stack_status_ret tmp1 = e_stack_peek_index(stack, stack->top - 1);
+	e_stack_status_ret tmp2 = e_stack_peek_index(stack, stack->top - 2);
+	if(tmp1.status == E_STATUS_OK && tmp2.status == E_STATUS_OK) {
+		e_stack_status_ret s2 = e_stack_pop(stack); // s1
+		e_stack_status_ret s1 = e_stack_pop(stack);	// s2
+		if(s1.status == E_STATUS_OK && s2.status == E_STATUS_OK) {
+			e_stack_status_ret s_push1 = e_stack_push(stack, s2.val);
+			e_stack_status_ret s_push2 = e_stack_push(stack, s1.val);
+			if(s_push1.status == E_STATUS_OK && s_push2.status == E_STATUS_OK) {
+				return (e_stack_status_ret) { .status = E_STATUS_OK };
+			}
+		}
+	}
+	return (e_stack_status_ret) { .status = E_STATUS_UNDERFLOW };
 }
 
 e_value
@@ -709,6 +792,33 @@ e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v) {
 		vm->arrays[aptr][index].v = v;
 	}
 	return 0;
+}
+
+void
+e_dump_stack(const e_stack* stack) {
+	if(stack == NULL) return;
+
+	printf("| ENTRIES IN GIVEN STACK: %d (%d total)\n", stack->top, stack->size);
+
+	for(uint32_t i = 0; i < stack->size; i++) {
+		e_value e = stack->entries[i];
+		if(e.argtype == E_NUMBER || e.argtype == E_STRING ||e.argtype == E_ARRAY) {
+			switch(e.argtype) {
+				case E_NUMBER:
+					printf("| [%d] - NUMBER - %f\n", i, e.val);
+					break;
+				case E_STRING:
+					printf("| [%d] - STRING (%d bytes) - %s\n", i, e.sval.slen, e.sval.sval);
+					break;
+				case E_ARRAY:
+					printf("| [%d] - ARRAY (%d entries) beginning at addr %d\n", i, e.aval.alen, e.aval.aptr);
+					break;
+				default:
+					printf("| INVALID TYPE\n");
+			}
+		}
+	}
+	printf("| ---------------------------------------|\n\n");
 }
 
 void

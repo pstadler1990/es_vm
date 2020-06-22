@@ -9,11 +9,12 @@
 
 #define	E_STACK_SIZE 		((uint32_t)1024)
 #define	E_INSTR_BYTES 		((uint32_t)9)
-#define E_OUT_DS_SIZE       ((int)500)	// FIXME
+#define E_OUT_DS_SIZE       ((int)2500)	// FIXME
 
 #define E_MAX_STRLEN    ((int)1024)
 #define E_MAX_ARRAYSIZE ((int)512)
 #define E_MAX_ARRAYS 	((int)8)
+#define E_MAX_CALLFRAMES ((int)32)
 
 typedef enum {
 	E_ARGT_NULL = 2,
@@ -85,12 +86,19 @@ typedef struct {
 	e_value val;
 } e_stack_status_ret;
 
+typedef struct {
+	double retAddr;
+	e_stack locals;
+} e_callframe;
+
 // VM
 typedef struct {
 	uint32_t ip;
 	e_stack stack;
 	e_stack globals;
 	e_stack locals;
+	e_callframe callframes[E_MAX_CALLFRAMES];
+	uint32_t cfcnt;
 	e_vm_status status;
 
 	uint8_t ds[E_OUT_DS_SIZE];
@@ -133,6 +141,7 @@ typedef enum {
 	E_OP_JZ = 0x40,        /* Jump if zero,                            JZ [addr]                           */
 	E_OP_JMP = 0x41,       /* unconditional jump,                      JMP [addr]                          */
 	E_OP_JFS = 0x42,	   /* Jump from stack value, 				   JFS s[s-1]						   */
+	E_OP_JMPFUN = 0x43,	   /* unconditional jump to function,		   JMPFUN [addr]					   */
 
 	E_OP_PRINT  = 0x50,    /* Print statement (debug)                  PRINT(expr)                         */
 } e_opcode;
@@ -155,8 +164,9 @@ e_value e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen);
 void e_stack_init(e_stack* stack, uint32_t size);
 e_stack_status_ret e_stack_push(e_stack* stack, e_value v);
 e_stack_status_ret e_stack_pop(e_stack* stack);
-e_stack_status_ret e_stack_peek(e_stack* stack);
-e_stack_status_ret e_stack_peek_index(e_stack* stack, uint32_t index);
+e_stack_status_ret e_stack_peek(const e_stack* stack);
+e_stack_status_ret e_stack_peek_index(const e_stack* stack, uint32_t index);
 e_stack_status_ret e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index);
+e_stack_status_ret e_stack_swap_last(e_stack* stack);
 
 #endif //ES_VM_H
