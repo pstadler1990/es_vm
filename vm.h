@@ -7,14 +7,21 @@
 
 #include <stdint.h>
 
-#define	E_STACK_SIZE 		((uint32_t)1024)
+// Never change E_INSTR_BYTES!
 #define	E_INSTR_BYTES 		((uint32_t)9)
+
+// You may change these values (carefully!)
+#define	E_STACK_SIZE 		((uint32_t)128)
 #define E_OUT_DS_SIZE       ((int)2500)	// FIXME
 
-#define E_MAX_STRLEN    ((int)1024)
+#define E_MAX_STRLEN    ((int)128)
 #define E_MAX_ARRAYSIZE ((int)512)
 #define E_MAX_ARRAYS 	((int)8)
 #define E_MAX_CALLFRAMES ((int)32)
+
+// Defines external C-API linkage
+#define E_MAX_EXTIDENTIFIERS	((int)32)
+#define E_MAX_EXTIDENTIFIERS_STRLEN ((int)64)
 
 typedef enum {
 	E_ARGT_NULL = 2,
@@ -109,6 +116,16 @@ typedef struct {
 	uint32_t acnt;
 } e_vm;
 
+// External subroutines / functions
+typedef struct {
+	char identifier[E_MAX_EXTIDENTIFIERS_STRLEN];
+	uint32_t (*fptr)(e_vm* vm, uint32_t arglen);
+} e_external_mapping;
+
+// map["my_external_func"] = &my_func_ptr;
+// TODO: This should be replaced by a decent hash map!
+static e_external_mapping e_external_map[E_MAX_EXTIDENTIFIERS];
+
 // OPCODES
 typedef enum {
 	E_OP_NOP = 0x00,	   /* NOP																		    */
@@ -142,6 +159,7 @@ typedef enum {
 	E_OP_JMP = 0x41,       /* unconditional jump,                      JMP [addr]                          */
 	E_OP_JFS = 0x42,	   /* Jump from stack value, 				   JFS s[s-1]						   */
 	E_OP_JMPFUN = 0x43,	   /* unconditional jump to function,		   JMPFUN [addr]					   */
+	E_OP_CALL = 0x44,	   /* Calls an external defined subroutine	   CALL s[s-1]						   */
 
 	E_OP_PRINT  = 0x50,    /* Print statement (debug)                  PRINT(expr)                         */
 } e_opcode;
@@ -168,5 +186,9 @@ e_stack_status_ret e_stack_peek(const e_stack* stack);
 e_stack_status_ret e_stack_peek_index(const e_stack* stack, uint32_t index);
 e_stack_status_ret e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index);
 e_stack_status_ret e_stack_swap_last(e_stack* stack);
+
+// API
+void e_api_register_sub(const char* identifier, uint32_t (*fptr)(e_vm*, uint32_t));
+uint8_t e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen);
 
 #endif //ES_VM_H

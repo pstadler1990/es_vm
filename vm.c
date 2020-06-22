@@ -614,9 +614,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			// Create CallFrame
 			{
 				e_callframe callframe;
-				e_stack_status_ret s_ret = e_stack_pop(&vm->stack);
-				if(s_ret.status == E_STATUS_OK) {
-					callframe.retAddr = s_ret.val.val;
+				s1 = e_stack_pop(&vm->stack);
+				if(s1.status == E_STATUS_OK) {
+					callframe.retAddr = s1.val.val;
 					callframe.locals = vm->locals;
 					vm->callframes[vm->cfcnt] = callframe;
 
@@ -626,6 +626,31 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				} else goto error;
 
 				vm->ip = d_op;
+			}
+			break;
+		case E_OP_CALL:
+			// External function / subroutine call
+			s1 = e_stack_pop(&vm->stack);
+
+			for(uint32_t i = 0; i < d_op; i++) {
+
+				e_stack_status_ret s;// = e_stack_peek_index(&vm->locals, i);
+				if(vm->cfcnt > 0) {
+					s = e_stack_peek_index(&vm->callframes[vm->cfcnt - 1].locals, i);
+				} else {
+					s = e_stack_peek_index(&vm->locals, i);
+				}
+				if(s.status == E_STATUS_OK) {
+					e_stack_push(&vm->stack, s.val);
+				}
+			}
+
+			if(s1.status == E_STATUS_OK && s1.val.argtype == E_STRING) {
+				 uint32_t ret_values = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op) - 1;
+				 if(ret_values == 0) {
+				 	fail("Unknown function / subroutine");
+				 	goto error;
+				 }
 			}
 			break;
 		case E_OP_PRINT:
@@ -824,4 +849,37 @@ e_dump_stack(const e_stack* stack) {
 void
 fail(const char* msg) {
 	printf("%s\n", msg);
+}
+
+// C-API
+void
+e_api_register_sub(const char* identifier, uint32_t (*fptr)(e_vm*, uint32_t)) {
+	static uint32_t m_index = 0;
+	if(m_index + 1 < E_MAX_EXTIDENTIFIERS) {
+		if(strlen(identifier) < E_MAX_EXTIDENTIFIERS_STRLEN) {
+			strcpy(e_external_map[m_index].identifier, identifier);
+			if(strlen(identifier) == strlen(e_external_map[m_index].identifier)) {
+				e_external_map[m_index].fptr = fptr;
+				m_index++;
+				return;
+			}
+		}
+	}
+
+	fail("Cannot register another subroutine");
+}
+
+uint8_t
+e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen) {
+	uint32_t slen = strlen(identifier);
+	if(slen > E_MAX_EXTIDENTIFIERS_STRLEN) return 0;
+
+	for(uint32_t i = 0; i < E_MAX_EXTIDENTIFIERS; i++) {
+		if(strncmp(identifier, e_external_map[i].identifier, slen) == 0) {
+			// Call external function through fp
+			return 1 + e_external_map[i].fptr(vm, arglen);
+		}
+	}
+
+	return 0;
 }
