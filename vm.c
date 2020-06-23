@@ -11,6 +11,15 @@ static void fail(const char* msg);
 static uint8_t e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr);
 static uint8_t e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v);
 static uint8_t e_array_append(e_vm* vm, uint32_t aptr, e_value v);
+
+// Stack
+void e_stack_init(e_stack* stack, uint32_t size);
+static e_stack_status_ret e_stack_push(e_stack* stack, e_value v);
+static e_stack_status_ret e_stack_pop(e_stack* stack);
+static e_stack_status_ret e_stack_peek(const e_stack* stack);
+static e_stack_status_ret e_stack_peek_index(const e_stack* stack, uint32_t index);
+static e_stack_status_ret e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index);
+static e_stack_status_ret e_stack_swap_last(e_stack* stack);
 static void e_dump_stack(const e_stack* stack);
 
 #define E_DEBUG 0
@@ -628,6 +637,10 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					// TODO: Correct?!
 					if(vm->cfcnt == 0) {
 						callframe.locals = vm->locals;
+						// TODO: We only need to copy the stack until s[-1] (s-1 contains the string)
+
+						//callframe.locals = vm->stack;
+						//memcpy(&callframe.locals.entries[0], &vm->stack.entries[1], sizeof(e_value) * (vm->stack.top));
 					} else {
 						callframe.locals = vm->callframes[vm->cfcnt - 1].locals;
 					}
@@ -652,21 +665,43 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 				e_stack_status_ret s;// = e_stack_peek_index(&vm->locals, i);
 				if(vm->cfcnt > 0) {
-					s = e_stack_peek_index(&vm->callframes[vm->cfcnt - 1].locals, i);
+					s = e_stack_peek_index(&vm->callframes[vm->cfcnt - 1].locals, i);	/* d_op - i - 1 */
+					//if(s.status == E_STATUS_OK) {
+					//	e_stack_push(&vm->stack, s.val);
+					//}
 				} else {
 					s = e_stack_peek_index(&vm->locals, i);
 				}
 				if(s.status == E_STATUS_OK) {
 					e_stack_push(&vm->stack, s.val);
-				}
+				}	// TODO: Fix me locals are confused in external func calls
 			}
 
 			if(s1.status == E_STATUS_OK && s1.val.argtype == E_STRING) {
-				 uint32_t ret_values = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op) - 1;
-				 if(ret_values == 0) {
-				 	fail("Unknown function / subroutine");
-				 	goto error;
-				 }
+				uint32_t argsbefore = vm->stack.top;
+
+				int32_t ret_values = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op) - 1;
+				if(ret_values == -1) {
+					fail("Unknown function / subroutine");
+					goto error;
+				} else if(ret_values == 0) {
+					fail("C function call internal error");
+					goto error;
+				} else {
+					// Discard all remaining stack values that are unwanted after the function call
+					uint32_t A = argsbefore - d_op;	// allowed remaining
+					uint32_t argsafter = vm->stack.top;
+					uint32_t I = argsafter - ret_values;
+
+					if(A != I) {
+						for (uint32_t i = 0; i < (I - A); i++) {
+							if (vm->stack.top > 1) {
+								e_stack_swap_last(&vm->stack);
+							}
+							e_stack_pop(&vm->stack);
+						}
+					}
+				}
 			}
 			break;
 		case E_OP_PRINT:
@@ -868,6 +903,19 @@ fail(const char* msg) {
 }
 
 // C-API
+e_stack_status_ret
+e_api_stack_push(e_stack* stack, e_value v) {
+	// TODO:
+	return e_stack_push(stack, v);
+}
+
+
+e_stack_status_ret
+e_api_stack_pop(e_stack* stack) {
+	// TODO:
+	return e_stack_pop(stack);
+}
+
 void
 e_api_register_sub(const char* identifier, uint32_t (*fptr)(e_vm*, uint32_t)) {
 	static uint32_t m_index = 0;
@@ -885,7 +933,7 @@ e_api_register_sub(const char* identifier, uint32_t (*fptr)(e_vm*, uint32_t)) {
 	fail("Cannot register another subroutine");
 }
 
-uint8_t
+int8_t
 e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen) {
 	uint32_t slen = strlen(identifier);
 	if(slen > E_MAX_EXTIDENTIFIERS_STRLEN) return 0;
@@ -897,5 +945,5 @@ e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen) {
 		}
 	}
 
-	return 0;
+	return -1;
 }

@@ -178,17 +178,10 @@ e_value e_create_number(double n);
 e_value e_create_string(const char* str);
 e_value e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen);
 
-// Stack
-void e_stack_init(e_stack* stack, uint32_t size);
-e_stack_status_ret e_stack_push(e_stack* stack, e_value v);
-e_stack_status_ret e_stack_pop(e_stack* stack);
-e_stack_status_ret e_stack_peek(const e_stack* stack);
-e_stack_status_ret e_stack_peek_index(const e_stack* stack, uint32_t index);
-e_stack_status_ret e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index);
-e_stack_status_ret e_stack_swap_last(e_stack* stack);
-
 // API
+e_stack_status_ret e_api_stack_push(e_stack* stack, e_value v);
+e_stack_status_ret e_api_stack_pop(e_stack* stack);
 void e_api_register_sub(const char* identifier, uint32_t (*fptr)(e_vm*, uint32_t));
-uint8_t e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen);
+int8_t e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen);
 
 #endif //ES_VM_H
