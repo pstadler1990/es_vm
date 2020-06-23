@@ -259,14 +259,12 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 							printf("Storing value %f to local stack [%d] (type: %d)\n", s1.val.val, instr.op1, instr.op2);
 						}
 #endif
-						// TODO: Bug in recursive ?
 						e_stack_status_ret s;
 						if(vm->cfcnt > 0) {
 							s = e_stack_insert_at_index(&vm->callframes[vm->cfcnt - 1].locals, s1.val, d_op);
 						} else {
 							s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
 						}
-						// e_stack_status_ret s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
 						if (s.status != E_STATUS_OK) goto error;
 					} else goto error;
 				}
@@ -609,14 +607,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(vm->cfcnt == 0) goto error;
 				e_callframe callframe = vm->callframes[vm->cfcnt - 1];
 
-				// TODO: Watch, if removing the swap destroyed anything!
-				//if(d_op > 0) {
-					/* d_op contains number of returned values (currently only 1 return value is allowed!) */
-					// first pop is returned value
-					// second pop is jump address
-				//	e_stack_swap_last(&vm->stack);
-				//}
-
 				// Close callframe
 				if(vm->cfcnt - 1 >= 0) {
 					vm->cfcnt -= 1;
@@ -634,13 +624,8 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(s1.status == E_STATUS_OK) {
 					callframe.retAddr = s1.val.val;
 
-					// TODO: Correct?!
 					if(vm->cfcnt == 0) {
 						callframe.locals = vm->locals;
-						// TODO: We only need to copy the stack until s[-1] (s-1 contains the string)
-
-						//callframe.locals = vm->stack;
-						//memcpy(&callframe.locals.entries[0], &vm->stack.entries[1], sizeof(e_value) * (vm->stack.top));
 					} else {
 						callframe.locals = vm->callframes[vm->cfcnt - 1].locals;
 					}
@@ -660,22 +645,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 		case E_OP_CALL:
 			// External function / subroutine call
 			s1 = e_stack_pop(&vm->stack);
-
-			for(uint32_t i = 0; i < d_op; i++) {
-
-				e_stack_status_ret s;// = e_stack_peek_index(&vm->locals, i);
-				if(vm->cfcnt > 0) {
-					s = e_stack_peek_index(&vm->callframes[vm->cfcnt - 1].locals, i);	/* d_op - i - 1 */
-					//if(s.status == E_STATUS_OK) {
-					//	e_stack_push(&vm->stack, s.val);
-					//}
-				} else {
-					s = e_stack_peek_index(&vm->locals, i);
-				}
-				if(s.status == E_STATUS_OK) {
-					e_stack_push(&vm->stack, s.val);
-				}	// TODO: Fix me locals are confused in external func calls
-			}
 
 			if(s1.status == E_STATUS_OK && s1.val.argtype == E_STRING) {
 				uint32_t argsbefore = vm->stack.top;
