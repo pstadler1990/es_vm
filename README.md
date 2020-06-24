@@ -85,3 +85,16 @@ When `push`ing, make sure the `return` the number of pushed values from the func
 `return 4`. It is important to use the right `return` value, otherwise the virtual machine will fail after the call operation.
 
 `push`ing more than a single value will result in an automatically `array` conversion after the `call` statement!
+
+##### Create values for pushing
+To push anything onto the stack you need to create a suitable `e_value` type. You can use the utility functions for each supported type:
+
+```c
+// These functions return a new e_value type
+e_create_number(double n);
+e_create_string(const char* s);
+
+// Arrays are a bit different as they require the vm context
+// arr is an array of e_values, arrlen is the new array's length
+e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen);
+```
