@@ -649,18 +649,15 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			if(s1.status == E_STATUS_OK && s1.val.argtype == E_STRING) {
 				uint32_t argsbefore = vm->stack.top;
 
-				int32_t ret_values = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op) - 1;
-				if(ret_values == -1) {
+				uint32_t ret_values = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op);
+				if(ret_values == 0) {
 					fail("Unknown function / subroutine");
-					goto error;
-				} else if(ret_values == 0) {
-					fail("C function call internal error");
 					goto error;
 				} else {
 					// Discard all remaining stack values that are unwanted after the function call
 					uint32_t A = argsbefore - d_op;	// allowed remaining
 					uint32_t argsafter = vm->stack.top;
-					uint32_t I = argsafter - ret_values;
+					uint32_t I = argsafter - (ret_values - 1);
 
 					if(A != I) {
 						for (uint32_t i = 0; i < (I - A); i++) {
@@ -782,8 +779,12 @@ e_value
 e_create_string(const char* str) {
 	e_str_type new_str;
 
-	new_str.sval = (uint8_t*)strdup(str);
-	new_str.slen = strlen(str);
+	uint32_t slen = strlen(str);
+	memcpy(new_str.sval, str, slen);
+	if(strlen((const char*)new_str.sval) != slen) {
+		return (e_value) { 0 };
+	}
+	new_str.slen = slen;
 
 	return (e_value) { .sval = new_str, .argtype = E_STRING };
 }
@@ -874,14 +875,12 @@ fail(const char* msg) {
 // C-API
 e_stack_status_ret
 e_api_stack_push(e_stack* stack, e_value v) {
-	// TODO:
 	return e_stack_push(stack, v);
 }
 
 
 e_stack_status_ret
 e_api_stack_pop(e_stack* stack) {
-	// TODO:
 	return e_stack_pop(stack);
 }
 
@@ -902,7 +901,7 @@ e_api_register_sub(const char* identifier, uint32_t (*fptr)(e_vm*, uint32_t)) {
 	fail("Cannot register another subroutine");
 }
 
-int8_t
+uint8_t
 e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen) {
 	uint32_t slen = strlen(identifier);
 	if(slen > E_MAX_EXTIDENTIFIERS_STRLEN) return 0;
@@ -914,5 +913,5 @@ e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen) {
 		}
 	}
 
-	return -1;
+	return 0;
 }
