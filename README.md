@@ -1,6 +1,27 @@
 # esvm
 Virtual machine for the `evoscript` language.
 
+## Initialization
+Use `e_vm_init(..)` to initialize a new vm context:
+
+```c
+e_vm context;
+...
+
+e_vm_init(&context);
+```
+
+To start the byte interpreter, use the `e_vm_parse_bytes(..)` function:
+
+```c
+uint8_t bytes_in[BUF_SIZE];
+...
+bytes_in = {..};
+...
+
+e_vm_parse_bytes(&context, bytes_in, BUF_SIZE);
+```
+
 ## Function / Subroutine binding
 To call `C` functions / routines from within the `evoscript` scripting environment, 
 you need to register the `C` functions first:
@@ -33,10 +54,10 @@ uint32_t e_ext_my_external_func(e_vm* vm, uint32_t arglen) {
     
     if(arglen > 0) {
         // Get one value from the stack
-        e_stack_status_ret a1 = e_stack_pop(&vm->stack);
+        e_stack_status_ret a1 = e_api_stack_pop(&vm->stack);
         if(a1.status == E_STATUS_OK && a1.val.argtype == E_NUMBER) {
             // Push a1 value * 2 onto stack
-            e_stack_push(&vm->stack, e_create_number(a1.val.val * 2));
+            e_api_stack_push(&vm->stack, e_create_number(a1.val.val * 2));
             return 1;
         }
     }
@@ -44,3 +65,21 @@ uint32_t e_ext_my_external_func(e_vm* vm, uint32_t arglen) {
     return 0;
 }
 ```
+
+#### Stack popping and pushing
+To pop values from the stack, use the `e_api_stack_pop()` respectively `e_api_stack_push()` functions.
+These functions will always return a `status` code and the value in case of `push`ing.
+
+**Important** When `pop`ping from the stack, ensure that there are sufficient values on the stack! Use the `arglen` argument to check for the number of given arguments. As the compiler knows nothing about the external functions, it cannot ensure the correct number of arguments in the external function calls.
+
+##### Type checking
+Use the `argtype` field to check the type of the values:
+```c
+e_stack_status_ret a1 = e_api_stack_pop(&vm->stack);
+if(a1.status == E_STATUS_OK && a1.val.argtype == E_NUMBER) {
+    // a1 is valid and contains value of type E_NUMBER
+}
+```
+
+When `push`ing, make sure the `return` the number of pushed values from the function, i.e. when pushing 4 values onto the stack using the `e_api_stack_push()` functions,
+`return 4`. It is important to use the right `return` value, otherwise the virtual machine will fail after the call operation.
