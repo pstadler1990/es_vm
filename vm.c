@@ -667,6 +667,24 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 							e_stack_pop(&vm->stack);
 						}
 					}
+
+					// Return array?
+					e_value tmp_arr[E_MAX_ARRAYSIZE];
+					uint32_t arr_len = ret_values - 1;
+					uint32_t e = arr_len - 1;
+					do {
+						s1 = e_stack_pop(&vm->stack);
+						if(s1.status == E_STATUS_OK) {
+							tmp_arr[e] = s1.val;
+						} else goto error;
+						e--;
+					} while((arr_len--) - 1);
+
+					e_value arr = e_create_array(vm, tmp_arr, ret_values - 1);
+					if(arr.aval.alen == (ret_values - 1)) {
+						e_stack_status_ret s = e_stack_push(&vm->stack, arr);
+						if (s.status != E_STATUS_OK) goto error;
+					} else goto error;
 				}
 			}
 			break;
@@ -781,6 +799,7 @@ e_create_string(const char* str) {
 
 	uint32_t slen = strlen(str);
 	memcpy(new_str.sval, str, slen);
+	new_str.sval[slen] = 0;
 	if(strlen((const char*)new_str.sval) != slen) {
 		return (e_value) { 0 };
 	}

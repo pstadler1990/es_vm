@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -6,7 +5,7 @@
 #include "vm_builtins.h"
 
 e_vm context;
-#define MAX_BUF_SIZE	((uint32_t)1000)
+#define MAX_BUF_SIZE	((uint32_t)2500)
 
 int main(int argc, char** argv) {
 	uint8_t bytes_in[MAX_BUF_SIZE];
@@ -26,9 +25,6 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
-
-	// Register API functions
-	e_api_register_sub("my_external_func", &e_ext_my_external_func);
 
 	e_vm_init(&context);
 	e_vm_parse_bytes(&context, bytes_in, bCnt /*sizeof(bytes_in) / sizeof(uint8_t)*/);
