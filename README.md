@@ -83,3 +83,5 @@ if(a1.status == E_STATUS_OK && a1.val.argtype == E_NUMBER) {
 
 When `push`ing, make sure the `return` the number of pushed values from the function, i.e. when pushing 4 values onto the stack using the `e_api_stack_push()` functions,
 `return 4`. It is important to use the right `return` value, otherwise the virtual machine will fail after the call operation.
+
+`push`ing more than a single value will result in an automatically `array` conversion after the `call` statement!
