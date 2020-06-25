@@ -112,6 +112,7 @@ typedef struct {
 	uint32_t dscnt;
 
 	uint8_t pupo_is_data;
+	int32_t pupo_arr_index;
 	e_array_entry arrays[E_MAX_ARRAYS][E_MAX_ARRAYSIZE];
 	uint32_t acnt;
 } e_vm;
@@ -134,9 +135,10 @@ typedef enum {
 	E_OP_PUSHL = 0x12,     /* Push local variable,                     PUSHL [index]                       	*/
 	E_OP_POPL = 0x13,      /* Pop local variable,                      POPG [index]        [s-1]         	*/
 	E_OP_PUSH = 0x14,      /* Push variable onto top of stack,         PUSH 3                              	*/
-	E_OP_POP = 0x15,       /* Pop variable from top of stack,          POP,                s[-1]           	*/
-	E_OP_PUSHS = 0x16,	   /* Push string 							   PUSHS [ascii byte(s)] 				*/
-	E_OP_DATA = 0x17,	   /* Size of following data segment,		   DATA [entries]	   s[-entries]		*/
+	E_OP_PUSHS = 0x15,	   /* Push string 							   PUSHS [ascii byte(s)] 				*/
+	E_OP_DATA = 0x16,	   /* Size of following data segment,		   DATA [entries]	   s[-entries]		*/
+	E_OP_PUSHA = 0x17,	   /* Push index of followed array access,	   PUSHA [index]						*/
+	E_OP_PUSHAS = 0x18,	   /* Push index of followed array from stack, PUSHAS 								*/
 
 	E_OP_EQ = 0x20,        /* Equal check,                             EQ,                 s[-1]==s[-2]    	*/
 	E_OP_LT = 0x21,        /* Less than,                               LT,                 s[-1]<s[-2]     	*/
@@ -162,6 +164,7 @@ typedef enum {
 	E_OP_CALL = 0x44,	   /* Calls an external defined subroutine	   CALL s[s-1]						   */
 
 	E_OP_PRINT  = 0x50,    /* Print statement (debug)                  PRINT(expr)                         */
+	E_OP_ARGTYPE = 0x51,   /* Argtype statement 					   ARGTYPE(exptr)					   */
 } e_opcode;
 
 typedef struct {

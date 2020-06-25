@@ -34,6 +34,7 @@ e_vm_init(e_vm* vm) {
 	e_stack_init(&vm->globals, E_STACK_SIZE);
 	e_stack_init(&vm->locals, E_STACK_SIZE);
 	vm->pupo_is_data = 0;
+	vm->pupo_arr_index = -1;
 	vm->dscnt = 0;
 	for(uint32_t i = 0; i < E_MAX_ARRAYS; i++) {
 		for(uint32_t e = 0; e < E_MAX_ARRAYSIZE; e++) {
@@ -141,14 +142,17 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					e_stack_status_ret s_peek = e_stack_peek_index(&vm->globals, d_op);
 					if(s_peek.val.argtype == E_ARRAY) {
 						/* Array access based on index */
-						e_stack_status_ret s_index = e_stack_pop(&vm->stack);
-						e_stack_status_ret s_value = e_stack_pop(&vm->stack);
-						if(s_index.status == E_STATUS_OK && s_value.status == E_STATUS_OK) {
-							e_change_value_in_arr(vm, s_peek.val.aval.aptr, s_index.val.val, s_value.val);
-						} else {
-							fail("Array out of bounds");
-							goto error;
-						}
+						//e_stack_status_ret s_index = e_stack_pop(&vm->stack);
+						if(vm->pupo_arr_index >= 0) {
+							e_stack_status_ret s_value = e_stack_pop(&vm->stack);
+							if(s_value.status == E_STATUS_OK) {
+								e_change_value_in_arr(vm, s_peek.val.aval.aptr, vm->pupo_arr_index, s_value.val);
+							} else {
+								fail("Array out of bounds");
+								goto error;
+							}
+							vm->pupo_arr_index = -1;
+						} else goto error;
 					} else {
 						s1 = e_stack_pop(&vm->stack);
 						if(s1.status == E_STATUS_OK) {
@@ -174,10 +178,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 #endif
 					if(s.val.argtype == E_ARRAY) {
 						/* Array access based on index */
-						e_stack_status_ret s_index = e_stack_pop(&vm->stack);
-						if(s_index.status == E_STATUS_OK) {
+						if(vm->pupo_arr_index >= 0) {
 							e_value v;
-							if(e_find_value_in_arr(vm, s.val.aval.aptr, s_index.val.val, &v)) {
+							if(e_find_value_in_arr(vm, s.val.aval.aptr, vm->pupo_arr_index, &v)) {
 								e_stack_status_ret s_push = e_stack_push(&vm->stack, v);
 								if(s_push.status == E_STATUS_NESIZE) {
 									fail("Stack overflow");
@@ -186,7 +189,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 							} else {
 								/* Out of bounds */
 								fail("Array out of bounds");
+								goto error;
 							}
+							vm->pupo_arr_index = -1;
 						} else {
 							/* Array pass-by-value? */
 							e_stack_status_ret s_push = e_stack_push(&vm->stack, s.val);
@@ -241,14 +246,16 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				}
 				if(s_peek.val.argtype == E_ARRAY) {
 					/* Array access based on index */
-					e_stack_status_ret s_index = e_stack_pop(&vm->stack);
-					e_stack_status_ret s_value = e_stack_pop(&vm->stack);
-					if(s_index.status == E_STATUS_OK && s_value.status == E_STATUS_OK) {
-						e_change_value_in_arr(vm, s_peek.val.aval.aptr, s_index.val.val, s_value.val);
-					} else {
-						fail("Array out of bounds");
-						goto error;
-					}
+					if(vm->pupo_arr_index >= 0) {
+						e_stack_status_ret s_value = e_stack_pop(&vm->stack);
+						if(s_value.status == E_STATUS_OK) {
+							e_change_value_in_arr(vm, s_peek.val.aval.aptr, vm->pupo_arr_index, s_value.val);
+						} else {
+							fail("Array out of bounds");
+							goto error;
+						}
+						vm->pupo_arr_index = -1;
+					} else goto error;
 				} else {
 					s1 = e_stack_pop(&vm->stack);
 					if (s1.status == E_STATUS_OK) {
@@ -288,10 +295,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 #endif
 					if(s.val.argtype == E_ARRAY) {
 						/* Array access based on index */
-						e_stack_status_ret s_index = e_stack_pop(&vm->stack);
-						if(s.status == E_STATUS_OK) {
+						if(vm->pupo_arr_index >= 0) {
 							e_value v;
-							if(e_find_value_in_arr(vm, s.val.aval.aptr, s_index.val.val, &v)) {
+							if(e_find_value_in_arr(vm, s.val.aval.aptr, vm->pupo_arr_index, &v)) {
 								e_stack_status_ret s_push = e_stack_push(&vm->stack, v);
 								if(s_push.status == E_STATUS_NESIZE) {
 									fail("Stack overflow");
@@ -317,6 +323,17 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 							goto error;
 						}
 					}
+				} else goto error;
+			}
+			break;
+		case E_OP_PUSHA:
+			vm->pupo_arr_index = d_op;
+			break;
+		case E_OP_PUSHAS:
+			{
+				s1 = e_stack_pop(&vm->stack);
+				if(s1.status == E_STATUS_OK) {
+					vm->pupo_arr_index = s1.val.val;
 				} else goto error;
 			}
 			break;
@@ -348,8 +365,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_DATA:
 			vm->pupo_is_data = d_op;
-			break;
-		case E_OP_POP:
 			break;
 		case E_OP_EQ:
 			// PUSH (s[-1] == s[-2])
@@ -543,12 +558,33 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						strcat(buf, num_buf);
 						strcat(buf, (char*)s2.val.sval.sval);
 						buf[len] = 0;
-					} else {
-						snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
-						if(s1.val.sval.slen + strlen(num_buf) > E_MAX_STRLEN) goto error;
+					} else if(s2.val.argtype == E_NUMBER) {
+						uint32_t l1 = snprintf(num_buf, E_MAX_STRLEN, "%f", s2.val.val);
+						uint32_t len = s1.val.sval.slen + l1;
+						if(len > E_MAX_STRLEN) goto error;
 						memcpy(buf, (char*)s1.val.sval.sval, s1.val.sval.slen);
 						buf[s1.val.sval.slen] = 0;
 						strcat(buf, num_buf);
+					} else {
+						// Array?
+						if(s1.val.argtype == E_ARRAY) {
+							uint32_t l1 = snprintf(num_buf, E_MAX_STRLEN, "Array<%d> with length %d", s1.val.aval.aptr, s1.val.aval.alen);
+							uint32_t len = s2.val.sval.slen + l1;
+							if(len + strlen(num_buf) > E_MAX_STRLEN) goto error;
+							strcat(buf, num_buf);
+							strcat(buf, (char*)s2.val.sval.sval);
+							buf[len] = 0;
+						} else if(s2.val.argtype == E_ARRAY) {
+							uint32_t l1 = snprintf(num_buf, E_MAX_STRLEN, "Array<%d> with length %d", s2.val.aval.aptr, s2.val.aval.alen);
+							uint32_t len = s1.val.sval.slen + l1;
+							if(len + strlen(num_buf) > E_MAX_STRLEN) goto error;
+							memcpy(buf, (char*)s1.val.sval.sval, s1.val.sval.slen);
+							buf[s1.val.sval.slen] = 0;
+							strcat(buf, num_buf);
+						} else {
+							fail("Unsupported argtype");
+							goto error;
+						}
 					}
 
 					e_stack_status_ret s_push = e_stack_push(&vm->stack, e_create_string(buf));
@@ -690,6 +726,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			break;
 		case E_OP_PRINT:
 			e_builtin_print(vm, 1);
+			break;
+		case E_OP_ARGTYPE:
+			e_builtin_argtype(vm, 1);
 			break;
 		default:
 			return E_VM_STATUS_ERROR;
