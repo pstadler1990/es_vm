@@ -730,6 +730,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 		case E_OP_ARGTYPE:
 			e_builtin_argtype(vm, 1);
 			break;
+		case E_OP_LEN:
+			e_builtin_len(vm, 1);
+			break;
 		default:
 			return E_VM_STATUS_ERROR;
 	}

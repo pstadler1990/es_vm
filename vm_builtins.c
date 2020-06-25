@@ -28,5 +28,31 @@ uint32_t e_builtin_argtype(e_vm* vm, uint32_t arglen) {
 			}
 		}
 	}
-	return 0;	// 0 args are pushed back onto stack
+	return 0;
+}
+
+uint32_t e_builtin_len(e_vm* vm, uint32_t arglen) {
+	if(arglen == 1) {
+		e_stack_status_ret s1 = e_api_stack_pop(&vm->stack);
+
+		e_stack_status_ret s_push;
+		if(s1.status == E_STATUS_OK) {
+			switch(s1.val.argtype) {
+				default:
+				case E_NUMBER:
+					s_push = e_api_stack_push(&vm->stack, e_create_number(0));
+					break;
+				case E_STRING:
+					s_push = e_api_stack_push(&vm->stack, e_create_number(s1.val.sval.slen));
+					break;
+				case E_ARRAY:
+					s_push = e_api_stack_push(&vm->stack, e_create_number(s1.val.aval.alen));
+					break;
+			}
+			if(s_push.status == E_STATUS_OK) {
+				return 1;
+			}
+		}
+	}
+	return 0;
 }

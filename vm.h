@@ -164,7 +164,8 @@ typedef enum {
 	E_OP_CALL = 0x44,	   /* Calls an external defined subroutine	   CALL s[s-1]						   */
 
 	E_OP_PRINT  = 0x50,    /* Print statement (debug)                  PRINT(expr)                         */
-	E_OP_ARGTYPE = 0x51,   /* Argtype statement 					   ARGTYPE(exptr)					   */
+	E_OP_ARGTYPE = 0x51,   /* Argtype statement 					   ARGTYPE(expr)					   */
+	E_OP_LEN = 0x52,	   /* Len statement							   LEN(expr)						   */
 } e_opcode;
 
 typedef struct {
