@@ -148,6 +148,7 @@ typedef enum {
 	E_OP_NOTEQ = 0x25,	   /* Not equal check,						   NOTEQ,			   s[-1]!=[s-2]		*/
 
 	E_OP_ADD = 0x30,
+	E_OP_NEG = 0x31,
 	E_OP_SUB = 0x32,
 	E_OP_MUL = 0x33,
 	E_OP_DIV = 0x34,
