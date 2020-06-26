@@ -731,20 +731,23 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					// Return array?
 					e_value tmp_arr[E_MAX_ARRAYSIZE];
 					uint32_t arr_len = ret_values - 1;
-					uint32_t e = arr_len - 1;
-					do {
-						s1 = e_stack_pop(&vm->stack);
-						if(s1.status == E_STATUS_OK) {
-							tmp_arr[e] = s1.val;
-						} else goto error;
-						e--;
-					} while((arr_len--) - 1);
+					uint32_t e = 0;
+					if(arr_len > 0) {
+						e = arr_len - 1;
+						while((arr_len--) - 1) {
+							s1 = e_stack_pop(&vm->stack);
+							if(s1.status == E_STATUS_OK) {
+								tmp_arr[e] = s1.val;
+							} else goto error;
+							e--;
+						};
 
-					e_value arr = e_create_array(vm, tmp_arr, ret_values - 1);
-					if(arr.aval.alen == (ret_values - 1)) {
-						e_stack_status_ret s = e_stack_push(&vm->stack, arr);
-						if (s.status != E_STATUS_OK) goto error;
-					} else goto error;
+						e_value arr = e_create_array(vm, tmp_arr, ret_values - 1);
+						if(arr.aval.alen == (ret_values - 1)) {
+							e_stack_status_ret s = e_stack_push(&vm->stack, arr);
+							if (s.status != E_STATUS_OK) goto error;
+						} else goto error;
+					}
 				}
 			}
 			break;
