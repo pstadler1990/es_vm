@@ -465,7 +465,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			} else goto error;
 			break;
 		case E_OP_NEG:
-			// TODO: Negate stack value
 			s1 = e_stack_pop(&vm->stack);
 			if(s1.status == E_STATUS_OK) {
 				e_stack_status_ret s_push = e_stack_push(&vm->stack, e_create_number(-s1.val.val));
