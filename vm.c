@@ -50,9 +50,11 @@ e_vm_status
 e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 	if(blen == 0) return E_VM_STATUS_EOF;
 
-	printf("** Parsing %d bytes **\n", blen);
-
 	// Copy data segment
+	if(blen > E_OUT_DS_SIZE) {
+		fail("Not enough space");
+		return E_VM_STATUS_ERROR;
+	}
 	memcpy(&vm->ds, bytes, blen);
 	vm->dscnt = blen;
 
@@ -65,15 +67,26 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 		uint32_t ip_begin = vm->ip;
 
 		cur_instr.OP = bytes[vm->ip];
-		cur_instr.op1 = (uint32_t)((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) | (bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
-		cur_instr.op2 = (uint32_t)((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) | (bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
-		vm->ip++;
+		if(!sb_ops[cur_instr.OP]) {
+			cur_instr.op1 = (uint32_t)((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) | (bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
+			cur_instr.op2 = (uint32_t)((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) | (bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
+			vm->ip++;
 
-		uint32_t ip_end = vm->ip;
-		if(ip_end - ip_begin != E_INSTR_BYTES) {
-			fail("Instruction size / offset error");
-			return E_VM_STATUS_ERROR;
+			uint32_t ip_end = vm->ip;
+			if(ip_end - ip_begin != E_INSTR_BYTES) {
+				fail("Instruction size / offset error");
+				return E_VM_STATUS_ERROR;
+			}
+		} else {
+			vm->ip++;
+
+			uint32_t ip_end = vm->ip;
+			if(ip_end - ip_begin != E_INSTR_SINGLE_BYTES) {
+				fail("Instruction size / offset error");
+				return E_VM_STATUS_ERROR;
+			}
 		}
+
 #if E_DEBUG
 		printf("Fetched instruction -> [0x%02X] (0x%02X, 0x%02X)\n", cur_instr.OP, cur_instr.op1, cur_instr.op2);
 #endif
