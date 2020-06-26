@@ -307,6 +307,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 								/* Out of bounds */
 								fail("Array out of bounds");
 							}
+							vm->pupo_arr_index = -1;
 						} else {
 							/* Array pass-by-value? */
 							e_stack_status_ret s_push = e_stack_push(&vm->stack, s.val);
