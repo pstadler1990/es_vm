@@ -11,6 +11,7 @@ static void fail(const char* msg);
 static uint8_t e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr);
 static uint8_t e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v);
 static uint8_t e_array_append(e_vm* vm, uint32_t aptr, e_value v);
+static e_statusc e_place_sarray_from_pupo_data(e_vm* vm);
 
 // Stack
 void e_stack_init(e_stack* stack, uint32_t size);
@@ -752,12 +753,24 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			}
 			break;
 		case E_OP_PRINT:
+			if(vm->pupo_is_data) {
+				e_place_sarray_from_pupo_data(vm);
+				vm->pupo_is_data = 0;
+			}
 			e_builtin_print(vm, 1);
 			break;
 		case E_OP_ARGTYPE:
+			if(vm->pupo_is_data) {
+				e_place_sarray_from_pupo_data(vm);
+				vm->pupo_is_data = 0;
+			}
 			e_builtin_argtype(vm, 1);
 			break;
 		case E_OP_LEN:
+			if(vm->pupo_is_data) {
+				e_place_sarray_from_pupo_data(vm);
+				vm->pupo_is_data = 0;
+			}
 			e_builtin_len(vm, 1);
 			break;
 		default:
@@ -767,6 +780,28 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 	return E_VM_STATUS_OK;
 	error:
 		return E_VM_STATUS_ERROR;
+}
+
+e_statusc
+e_place_sarray_from_pupo_data(e_vm* vm) {
+	if(vm->pupo_is_data) {
+		e_value tmp_arr[E_MAX_ARRAYSIZE];
+		uint32_t arr_len = vm->pupo_is_data;
+		uint32_t e = arr_len - 1;
+		do {
+			e_stack_status_ret s1 = e_stack_pop(&vm->stack);
+			if (s1.status == E_STATUS_OK) {
+				tmp_arr[e] = s1.val;
+			} else return s1.status;
+			e--;
+		} while ((vm->pupo_is_data--) - 1);
+
+		e_value arr = e_create_array(vm, tmp_arr, arr_len);
+		e_stack_status_ret s_push = e_stack_push(&vm->stack, arr);
+		return s_push.status;
+	}
+
+	return (e_statusc) { E_STATUS_NOINIT };
 }
 
 
