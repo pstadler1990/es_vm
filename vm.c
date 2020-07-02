@@ -17,11 +17,18 @@ static e_statusc e_place_sarray_from_pupo_data(e_vm* vm);
 void e_stack_init(e_stack* stack, uint32_t size);
 static e_stack_status_ret e_stack_push(e_stack* stack, e_value v);
 static e_stack_status_ret e_stack_pop(e_stack* stack);
-static e_stack_status_ret e_stack_peek(const e_stack* stack);
 static e_stack_status_ret e_stack_peek_index(const e_stack* stack, uint32_t index);
 static e_stack_status_ret e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index);
 static e_stack_status_ret e_stack_swap_last(e_stack* stack);
+#ifdef E_DEBUG
 static void e_dump_stack(const e_stack* stack);
+#endif
+
+// Varstack
+static void e_varstack_init(e_value* varstack, uint32_t size);
+static e_stack_status_ret e_varstack_peek_index(const e_value* varstack, uint32_t index);
+static e_stack_status_ret e_varstack_insert_global_at_index(e_value* varstack, e_value v, uint32_t index);
+static e_stack_status_ret e_varstack_insert_local_at_index(e_value* varstack, e_value v, uint32_t index);
 
 #define E_DEBUG 0
 #define E_DEBUG_PRINT_TABLES 0
@@ -32,8 +39,8 @@ e_vm_init(e_vm* vm) {
 	if(vm == NULL) return;
 	vm->ip = 0;
 	e_stack_init(&vm->stack, E_STACK_SIZE);
-	e_stack_init(&vm->globals, E_STACK_SIZE);
-	e_stack_init(&vm->locals, E_STACK_SIZE);
+	e_varstack_init(vm->globals, E_MAX_GLOBALS);
+	e_varstack_init(vm->locals, E_MAX_LOCALS);
 	vm->pupo_is_data = 0;
 	vm->pupo_arr_index = -1;
 	vm->dscnt = 0;
@@ -146,14 +153,14 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 				e_value arr = e_create_array(vm, tmp_arr, arr_len);
 				if(arr.aval.alen == arr_len) {
-					e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, arr, d_op);
+					e_stack_status_ret s = e_varstack_insert_global_at_index(vm->globals, arr, d_op);
 					vm->pupo_is_data = 0;
 					vm->pupo_is_data = 0;
 
 					if (s.status != E_STATUS_OK) goto error;
 				} else goto error;
 			} else {
-					e_stack_status_ret s_peek = e_stack_peek_index(&vm->globals, d_op);
+					e_stack_status_ret s_peek = e_varstack_peek_index(vm->globals, d_op);
 					if(s_peek.val.argtype == E_ARRAY) {
 						/* Array access based on index */
 						//e_stack_status_ret s_index = e_stack_pop(&vm->stack);
@@ -176,7 +183,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						if (instr.op2 == E_ARGT_STRING) {
 							s1.val.argtype = E_STRING;
 						}
-						e_stack_status_ret s = e_stack_insert_at_index(&vm->globals, s1.val, d_op);
+						e_stack_status_ret s = e_varstack_insert_global_at_index(vm->globals, s1.val, d_op);
 						if (s.status != E_STATUS_OK) goto error;
 					} else goto error;
 				}
@@ -185,7 +192,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 		case E_OP_POPG:
 			// Find value [index] in global stack
 			{
-				e_stack_status_ret s = e_stack_peek_index(&vm->globals, d_op);
+				e_stack_status_ret s = e_varstack_peek_index(vm->globals, d_op);
 				if(s.status == E_STATUS_OK) {
 #if E_DEBUG
 					printf("Loading global from index %d -> %f\n", instr.op1, s.val.val);
@@ -245,7 +252,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(vm->cfcnt > 0) {
 					s = e_stack_insert_at_index(&vm->callframes[vm->cfcnt - 1].locals, arr, d_op);
 				} else {
-					s = e_stack_insert_at_index(&vm->locals, arr, d_op);
+					s = e_varstack_insert_local_at_index(vm->locals, arr, d_op);
 				}
 				vm->pupo_is_data = 0;
 
@@ -256,7 +263,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(vm->cfcnt > 0) {
 					s_peek = e_stack_peek_index(&vm->callframes[vm->cfcnt - 1].locals, d_op);
 				} else {
-					s_peek = e_stack_peek_index(&vm->locals, d_op);
+					s_peek = e_varstack_peek_index(vm->locals, d_op);
 				}
 				if(s_peek.val.argtype == E_ARRAY) {
 					/* Array access based on index */
@@ -284,7 +291,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						if(vm->cfcnt > 0) {
 							s = e_stack_insert_at_index(&vm->callframes[vm->cfcnt - 1].locals, s1.val, d_op);
 						} else {
-							s = e_stack_insert_at_index(&vm->locals, s1.val, d_op);
+							s = e_varstack_insert_local_at_index(vm->locals, s1.val, d_op);
 						}
 						if (s.status != E_STATUS_OK) goto error;
 					} else goto error;
@@ -299,7 +306,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(vm->cfcnt > 0) {
 					s = e_stack_peek_index(&vm->callframes[vm->cfcnt - 1].locals, d_op);
 				} else {
-					s = e_stack_peek_index(&vm->locals, d_op);
+					s = e_varstack_peek_index(vm->locals, d_op);
 				}
 
 				//e_stack_status_ret s = e_stack_peek_index(&vm->locals, d_op);
@@ -686,7 +693,8 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					callframe.retAddr = s1.val.val;
 
 					if(vm->cfcnt == 0) {
-						callframe.locals = vm->locals;
+						memcpy(callframe.locals.entries, vm->locals, E_MAX_LOCALS);
+						// callframe.locals.entries = vm->locals;
 					} else {
 						callframe.locals = vm->callframes[vm->cfcnt - 1].locals;
 					}
@@ -741,7 +749,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 								tmp_arr[e] = s1.val;
 							} else goto error;
 							e--;
-						};
+						}
 
 						e_value arr = e_create_array(vm, tmp_arr, ret_values - 1);
 						if(arr.aval.alen == (ret_values - 1)) {
@@ -845,11 +853,6 @@ e_stack_pop(e_stack* stack) {
 }
 
 e_stack_status_ret
-e_stack_peek(const e_stack* stack) {
-	return e_stack_peek_index(stack, stack->top);
-}
-
-e_stack_status_ret
 e_stack_peek_index(const e_stack* stack, uint32_t index) {
 	if(stack == NULL) {
 		return (e_stack_status_ret) { .status = E_STATUS_NOINIT };
@@ -890,6 +893,51 @@ e_stack_swap_last(e_stack* stack) {
 		}
 	}
 	return (e_stack_status_ret) { .status = E_STATUS_UNDERFLOW };
+}
+
+// Globals / Locals
+void
+e_varstack_init(e_value* varstack, uint32_t size) {
+	if(varstack == NULL) {
+		return;
+	}
+	memset(varstack, 0, (sizeof(e_value) * size));
+}
+
+e_stack_status_ret
+e_varstack_peek_index(const e_value* varstack, uint32_t index) {
+	if(varstack == NULL) {
+		return (e_stack_status_ret) { .status = E_STATUS_NOINIT };
+	}
+	return (e_stack_status_ret) { .status = E_STATUS_OK, .val = varstack[index] };
+}
+
+e_stack_status_ret
+e_varstack_insert_global_at_index(e_value* varstack, e_value v, uint32_t index) {
+	if(varstack == NULL) {
+		return (e_stack_status_ret) { .status = E_STATUS_NOINIT };
+	}
+
+	if(index >= E_MAX_GLOBALS) {
+		return (e_stack_status_ret) { .status = E_STATUS_NESIZE };
+	}
+
+	varstack[index] = v;
+	return (e_stack_status_ret) { .status = E_STATUS_OK };
+}
+
+e_stack_status_ret
+e_varstack_insert_local_at_index(e_value* varstack, e_value v, uint32_t index) {
+	if(varstack == NULL) {
+		return (e_stack_status_ret) { .status = E_STATUS_NOINIT };
+	}
+
+	if(index >= E_MAX_LOCALS) {
+		return (e_stack_status_ret) { .status = E_STATUS_NESIZE };
+	}
+
+	varstack[index] = v;
+	return (e_stack_status_ret) { .status = E_STATUS_OK };
 }
 
 e_value
@@ -963,6 +1011,7 @@ e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v) {
 	return 0;
 }
 
+#ifdef E_DEBUG
 void
 e_dump_stack(const e_stack* stack) {
 	if(stack == NULL) return;
@@ -989,6 +1038,7 @@ e_dump_stack(const e_stack* stack) {
 	}
 	printf("| ---------------------------------------|\n\n");
 }
+#endif
 
 void
 fail(const char* msg) {

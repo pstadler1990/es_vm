@@ -12,7 +12,9 @@
 #define    E_INSTR_SINGLE_BYTES    ((uint32_t)1)
 
 // You may change these values (carefully!)
-#define    E_STACK_SIZE        ((uint32_t)128)
+#define E_STACK_SIZE        ((uint32_t)128)
+#define E_MAX_GLOBALS		((uint32_t)32)
+#define E_MAX_LOCALS		((uint32_t)16)
 #define E_OUT_DS_SIZE       ((int)2500)    // FIXME
 
 #define E_MAX_STRLEN    ((int)128)
@@ -25,28 +27,15 @@
 #define E_MAX_EXTIDENTIFIERS_STRLEN ((int)64)
 
 typedef enum {
-	E_ARGT_NULL = 2,
 	E_ARGT_NUMBER = 0,
 	E_ARGT_STRING = 1
 } e_arg_type;
 
 typedef enum {
-	E_CONCAT_FIRST,
-	E_CONCAT_SECOND,
-	E_CONCAT_BOTH
-} e_concat_type;
-
-typedef enum {
-	E_STATUS_NESTING = -7,
 	E_STATUS_UNDERFLOW = -6,
-	E_STATUS_DATATMIS = -5,
-	E_STATUS_NOTFOUND = -4,
-	E_STATUS_ALRDYDEF = -3,
 	E_STATUS_NESIZE = -2,
 	E_STATUS_NOINIT = -1,
-	E_STATUS_UNDEF = 0,
 	E_STATUS_OK = 1,
-	E_STATUS_REQ = 2,
 } e_statusc;
 
 typedef enum {
@@ -105,8 +94,8 @@ typedef struct {
 typedef struct {
 	uint32_t ip;
 	e_stack stack;
-	e_stack globals;
-	e_stack locals;
+	e_value globals[E_MAX_GLOBALS];
+	e_value locals[E_MAX_LOCALS];
 	e_callframe callframes[E_MAX_CALLFRAMES];
 	uint32_t cfcnt;
 	e_vm_status status;
