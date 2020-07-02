@@ -7,6 +7,9 @@
 #include "vm.h"
 #include "vm_builtins.h"
 
+#define E_DEBUG 0
+#define E_DEBUG_PRINT_TABLES 0
+
 static void fail(const char* msg);
 static uint8_t e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr);
 static uint8_t e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v);
@@ -20,7 +23,7 @@ static e_stack_status_ret e_stack_pop(e_stack* stack);
 static e_stack_status_ret e_stack_peek_index(const e_stack* stack, uint32_t index);
 static e_stack_status_ret e_stack_insert_at_index(e_stack* stack, e_value v, uint32_t index);
 static e_stack_status_ret e_stack_swap_last(e_stack* stack);
-#ifdef E_DEBUG
+#if E_DEBUG
 static void e_dump_stack(const e_stack* stack);
 #endif
 
@@ -29,9 +32,6 @@ static void e_varstack_init(e_value* varstack, uint32_t size);
 static e_stack_status_ret e_varstack_peek_index(const e_value* varstack, uint32_t index);
 static e_stack_status_ret e_varstack_insert_global_at_index(e_value* varstack, e_value v, uint32_t index);
 static e_stack_status_ret e_varstack_insert_local_at_index(e_value* varstack, e_value v, uint32_t index);
-
-#define E_DEBUG 0
-#define E_DEBUG_PRINT_TABLES 0
 
 // VM
 void
