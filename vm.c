@@ -738,11 +738,10 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					}
 
 					// Return array?
-					e_value tmp_arr[E_MAX_ARRAYSIZE];
 					uint32_t arr_len = ret_values - 1;
-					uint32_t e = 0;
-					if(arr_len > 0) {
-						e = arr_len - 1;
+					if(arr_len > 1) {
+						e_value tmp_arr[E_MAX_ARRAYSIZE];
+						uint32_t e = arr_len - 1;
 						while((arr_len--) - 1) {
 							s1 = e_stack_pop(&vm->stack);
 							if(s1.status == E_STATUS_OK) {
@@ -780,6 +779,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				vm->pupo_is_data = 0;
 			}
 			e_builtin_len(vm, 1);
+			break;
+		case E_OP_ARRAY:
+			e_builtin_array(vm, 1);
 			break;
 		default:
 			return E_VM_STATUS_ERROR;

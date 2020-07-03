@@ -27,6 +27,8 @@ int main(int argc, char** argv) {
 	}
 
 	e_vm_init(&context);
+	e_api_register_sub("__sort", &e_builtin_sort);
+
 	e_vm_parse_bytes(&context, bytes_in, bCnt /*sizeof(bytes_in) / sizeof(uint8_t)*/);
 
 	return 0;

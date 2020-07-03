@@ -128,17 +128,17 @@ typedef enum {
 	E_OP_PUSHL = 0x12,     /* Push local variable,                     PUSHL [index]                       	*/
 	E_OP_POPL = 0x13,      /* Pop local variable,                      POPG [index]        [s-1]         	*/
 	E_OP_PUSH = 0x14,      /* Push variable onto top of stack,         PUSH 3                              	*/
-	E_OP_PUSHS = 0x15,       /* Push string 							   PUSHS [ascii byte(s)] 				*/
-	E_OP_DATA = 0x16,       /* Size of following data segment,		   DATA [entries]	   s[-entries]		*/
-	E_OP_PUSHA = 0x17,       /* Push index of followed array access,	   PUSHA [index]						*/
-	E_OP_PUSHAS = 0x18,       /* Push index of followed array from stack, PUSHAS 								*/
+	E_OP_PUSHS = 0x15,     /* Push string 							   PUSHS [ascii byte(s)] 				*/
+	E_OP_DATA = 0x16,      /* Size of following data segment,		   DATA [entries]	   s[-entries]		*/
+	E_OP_PUSHA = 0x17,     /* Push index of followed array access,	   PUSHA [index]						*/
+	E_OP_PUSHAS = 0x18,    /* Push index of followed array from stack, PUSHAS 								*/
 
 	E_OP_EQ = 0x20,        /* Equal check,                             EQ,                 s[-1]==s[-2]    	*/
 	E_OP_LT = 0x21,        /* Less than,                               LT,                 s[-1]<s[-2]     	*/
 	E_OP_GT = 0x22,        /* Greater than,                            GT,                 s[-1]<s[-2]    	*/
 	E_OP_LTEQ = 0x23,      /* Less than or equal,                      LTEQ,               s[-1]<=s[-2]    	*/
 	E_OP_GTEQ = 0x24,      /* Greater than or equal,                   GTEQ,               s[-1]>=s[-2]    	*/
-	E_OP_NOTEQ = 0x25,       /* Not equal check,						   NOTEQ,			   s[-1]!=[s-2]		*/
+	E_OP_NOTEQ = 0x25,     /* Not equal check,						   NOTEQ,			   s[-1]!=[s-2]		*/
 
 	E_OP_ADD = 0x30,
 	E_OP_NEG = 0x31,
@@ -154,12 +154,13 @@ typedef enum {
 	E_OP_JZ = 0x40,        /* Jump if zero,                            JZ [addr]                           */
 	E_OP_JMP = 0x41,       /* unconditional jump,                      JMP [addr]                          */
 	E_OP_JFS = 0x42,       /* Jump from stack value, 				   JFS s[s-1]						   */
-	E_OP_JMPFUN = 0x43,       /* unconditional jump to function,		   JMPFUN [addr]					   */
-	E_OP_CALL = 0x44,       /* Calls an external defined subroutine	   CALL s[s-1]						   */
+	E_OP_JMPFUN = 0x43,    /* unconditional jump to function,		   JMPFUN [addr]					   */
+	E_OP_CALL = 0x44,      /* Calls an external defined subroutine	   CALL s[s-1]						   */
 
-	E_OP_PRINT = 0x50,    /* Print statement (debug)                  PRINT(expr)                         */
+	E_OP_PRINT = 0x50,     /* Print statement (debug)                  PRINT(expr)                         */
 	E_OP_ARGTYPE = 0x51,   /* Argtype statement 					   ARGTYPE(expr)					   */
 	E_OP_LEN = 0x52,       /* Len statement							   LEN(expr)						   */
+	E_OP_ARRAY = 0x53, 	   /* Array (dim) statement					   ARRAY(n)							   */
 } e_opcode;
 
 /* Single byte operations
