@@ -687,13 +687,13 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				} else goto error;
 
 				// "Close" all local arrays
-				for(uint32_t i = 0; i < E_MAX_LOCALS; i++) {
-					e_value tmp = callframe.locals.entries[i];
-					if(tmp.argtype == E_ARRAY) {
-						vm->arrays[tmp.aval.aptr]->used = 0;
-						vm->acnt--;
-					}
-				}
+//				for(uint32_t i = 0; i < E_MAX_LOCALS; i++) {
+//					e_value tmp = callframe.locals.entries[i];
+//					if(tmp.argtype == E_ARRAY) {
+//						vm->arrays[tmp.aval.aptr]->used = 0;
+//						vm->acnt--;
+//					}
+//				}
 
 				// Return addr
 				vm->ip = callframe.retAddr;
