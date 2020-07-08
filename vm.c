@@ -21,7 +21,7 @@ static uint8_t e_array_append(e_vm* vm, uint32_t aptr, e_value v);
 static e_statusc e_place_sarray_from_pupo_data(e_vm* vm);
 
 // Stack
-void e_stack_init(e_stack* stack, uint32_t size);
+static void e_stack_init(e_stack* stack, uint32_t size);
 static e_stack_status_ret e_stack_push(e_stack* stack, e_value v);
 static e_stack_status_ret e_stack_pop(e_stack* stack);
 static e_stack_status_ret e_stack_peek_index(const e_stack* stack, uint32_t index);
