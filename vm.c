@@ -69,51 +69,57 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 
 	do {
 #if E_DEBUG
-	snprintf(dbg_s, E_MAX_STRLEN, "** IP: %d ** ", vm->ip);
-	e_print(dbg_s);
-#endif
-
-#if E_USE_LOCK
-	if(e_check_locked()) {
-		return E_VM_STATUS_OK;
-	}
-#endif
-		e_instr cur_instr;
-		uint32_t ip_begin = vm->ip;
-
-		cur_instr.OP = bytes[vm->ip];
-		if(!sb_ops[cur_instr.OP]) {
-			cur_instr.op1 = (uint32_t)((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) | (bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
-			cur_instr.op2 = (uint32_t)((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) | (bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
-			vm->ip++;
-
-			uint32_t ip_end = vm->ip;
-			if(ip_end - ip_begin != E_INSTR_BYTES) {
-				e_fail("Instruction size / offset error");
-				return E_VM_STATUS_ERROR;
-			}
-		} else {
-			vm->ip++;
-
-			uint32_t ip_end = vm->ip;
-			if(ip_end - ip_begin != E_INSTR_SINGLE_BYTES) {
-				e_fail("Instruction size / offset error");
-				return E_VM_STATUS_ERROR;
-			}
-		}
-
-#if E_DEBUG
-		snprintf(dbg_s, E_MAX_STRLEN, "Fetched instruction -> [0x%02X] (0x%02X, 0x%02X)\n", cur_instr.OP, cur_instr.op1, cur_instr.op2);
+		snprintf(dbg_s, E_MAX_STRLEN, "** IP: %d ** ", vm->ip);
 		e_print(dbg_s);
 #endif
 
-		e_vm_status es = e_vm_evaluate_instr(vm, cur_instr);
-		if(es != E_VM_STATUS_OK) {
-			e_fail("Invalid instruction or malformed arguments - STOPPED EXECUTION");
-			return E_VM_STATUS_ERROR;
+
+#if E_USE_LOCK
+		if (!e_check_locked()) {
+#endif
+			e_instr cur_instr;
+			uint32_t ip_begin = vm->ip;
+
+			cur_instr.OP = bytes[vm->ip];
+			if (!sb_ops[cur_instr.OP]) {
+				cur_instr.op1 = (uint32_t) ((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) |
+											(bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
+				cur_instr.op2 = (uint32_t) ((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) |
+											(bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
+				vm->ip++;
+
+				uint32_t ip_end = vm->ip;
+				if (ip_end - ip_begin != E_INSTR_BYTES) {
+					e_fail("Instruction size / offset error");
+					return E_VM_STATUS_ERROR;
+				}
+			} else {
+				vm->ip++;
+
+				uint32_t ip_end = vm->ip;
+				if (ip_end - ip_begin != E_INSTR_SINGLE_BYTES) {
+					e_fail("Instruction size / offset error");
+					return E_VM_STATUS_ERROR;
+				}
+			}
+
+#if E_DEBUG
+			snprintf(dbg_s, E_MAX_STRLEN, "Fetched instruction -> [0x%02X] (0x%02X, 0x%02X)\n", cur_instr.OP, cur_instr.op1, cur_instr.op2);
+			e_print(dbg_s);
+#endif
+
+			e_vm_status es = e_vm_evaluate_instr(vm, cur_instr);
+			if (es != E_VM_STATUS_OK) {
+				e_fail("Invalid instruction or malformed arguments - STOPPED EXECUTION");
+				return E_VM_STATUS_ERROR;
+			}
+
 		}
 
-	} while(vm->ip < blen /*&& vm->ip <= E_OUT_SIZE*/);
+#if E_USE_LOCK
+	}
+#endif
+	while (vm->ip < blen /*&& vm->ip <= E_OUT_SIZE*/);
 
 	return E_VM_STATUS_OK;
 }
@@ -683,6 +689,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 				// Close callframe
 				if(vm->cfcnt - 1 >= 0) {
+					printf("closed callframe %d\n", vm->cfcnt - 1);
 					vm->cfcnt -= 1;
 				} else goto error;
 
