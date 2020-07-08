@@ -98,3 +98,14 @@ e_create_string(const char* s);
 // arr is an array of e_values, arrlen is the new array's length
 e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen);
 ```
+
+## Implementing required functions
+The `evoscript` VM requires you to implement some functions within your target application:
+
+| Function name | Arguments | Returned values | Description |
+| ------------- | --------- | --------------- | ----------- |
+| `e_print()` | `const char* msg` | `void` | Standard message printing function |
+| `e_fail()` | `const char* msg` | `void` | Standard error printing function |
+| `e_check_locked()` | `void` | `uint8` | Function to return whether the vm is currently locked |
+
+You can find dummies for these functions in `vm_builtins.c`.

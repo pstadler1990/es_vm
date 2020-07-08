@@ -15,10 +15,10 @@ uint32_t e_builtin_print(e_vm* vm, uint32_t arglen) {
 		e_stack_status_ret s1 = e_api_stack_pop(&vm->stack);
 		if(s1.status == E_STATUS_OK
 		   && s1.val.argtype == E_STRING) {
-			printf("%s\n", s1.val.sval.sval);
+			e_print((char*)s1.val.sval.sval);
 		}
 	}
-	return 0;	// 0 args are pushed back onto stack
+	return 0;
 }
 
 uint32_t e_builtin_argtype(e_vm* vm, uint32_t arglen) {
@@ -66,6 +66,8 @@ int cmpfunc(const void* a, const void* b) {
 
 	if(v1->argtype == E_NUMBER && v2->argtype == E_NUMBER) {
 		return (int)(v1->val - v2->val);
+	} else if(v1->argtype == E_STRING && v2->argtype == E_STRING) {
+		return (int)(v1->sval.slen - v2->sval.slen);
 	}
 	return 0;
 }
@@ -110,3 +112,19 @@ uint32_t e_builtin_array(e_vm* vm, uint32_t arglen) {
 	}
 	return 0;
 }
+
+#if 0
+void e_print(const char* msg) {
+	printf("%s\n", msg);
+}
+
+void e_fail(const char* msg) {
+	// TODO: Implement your custom error printing function here
+	printf("ERROR happend: %s\n", msg);
+}
+
+uint8_t e_check_locked(void) {
+	// TODO: You can use this function to return a locked status of the VM
+	return 0;
+}
+#endif

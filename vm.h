@@ -8,22 +8,22 @@
 #include <stdint.h>
 
 // Never change E_INSTR_BYTES!
-#define    E_INSTR_BYTES            ((uint32_t)9)
+#define    E_INSTR_BYTES           ((uint32_t)9)
 #define    E_INSTR_SINGLE_BYTES    ((uint32_t)1)
 
 // You may change these values (carefully!)
-#define E_STACK_SIZE        ((uint32_t)128)
+#define E_STACK_SIZE        ((uint32_t)32)
 #define E_MAX_GLOBALS		((uint32_t)32)
 #define E_MAX_LOCALS		((uint32_t)16)
-#define E_OUT_DS_SIZE       ((int)2500)    // FIXME
+#define E_OUT_DS_SIZE       ((int)5000)
 
-#define E_MAX_STRLEN    ((int)128)
-#define E_MAX_ARRAYSIZE ((int)512)
-#define E_MAX_ARRAYS    ((int)8)
-#define E_MAX_CALLFRAMES ((int)32)
+#define E_MAX_STRLEN    ((int)32)
+#define E_MAX_ARRAYSIZE ((int)64)
+#define E_MAX_ARRAYS    ((int)4)
+#define E_MAX_CALLFRAMES ((int)16)
 
 // Defines external C-API linkage
-#define E_MAX_EXTIDENTIFIERS    ((int)32)
+#define E_MAX_EXTIDENTIFIERS    ((int)16)
 #define E_MAX_EXTIDENTIFIERS_STRLEN ((int)64)
 
 typedef enum {
@@ -42,7 +42,7 @@ typedef enum {
 	E_VM_STATUS_ERROR = -1,
 	E_VM_STATUS_READY = 0,
 	E_VM_STATUS_OK = 1,
-	E_VM_STATUS_EOF = 2
+	E_VM_STATUS_EOF = 2,
 } e_vm_status;
 
 // ES Types
@@ -184,10 +184,11 @@ typedef enum {
 	E_OP_MOD
 	E_OP_PRINT
 	E_OP_ARGTYPE
-	E_OP_LEN */
+	E_OP_LEN
+ 	E_OP_ARRAY */
 static const uint8_t sb_ops[] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
 								 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-								 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1};
+								 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
 
 typedef struct {
 	e_opcode OP;
