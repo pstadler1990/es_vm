@@ -754,7 +754,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 					// Return array?
 					uint32_t arr_len = ret_values - 1;
-					printf("stacn: %d\n", vm->stack.top);
 					if(arr_len > 1) {
 						vm->pupo_is_data = arr_len;
 					}
