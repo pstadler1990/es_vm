@@ -7,6 +7,9 @@
 
 #include "vm.h"
 
+#define E_API_CALL_RETURN_OK(v)	((uint32_t)1 + v)
+#define E_API_CALL_RETURN_ERROR	((uint32_t)0)
+
 // Built-ins
 uint32_t e_builtin_print(e_vm* vm, uint32_t arglen);
 uint32_t e_builtin_argtype(e_vm* vm, uint32_t arglen);

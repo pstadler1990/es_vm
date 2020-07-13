@@ -17,8 +17,7 @@ char dbg_s[E_MAX_STRLEN];
 
 static uint8_t e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr);
 static uint8_t e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v);
-static uint8_t e_array_append(e_vm* vm, uint32_t aptr, e_value v);
-static e_statusc e_place_sarray_from_pupo_data(e_vm* vm);
+static uint8_t e_array_append(e_vm* vm, uint32_t aptr, uint32_t index, e_value v);
 
 // Stack
 static void e_stack_init(e_stack* stack, uint32_t size);
@@ -157,7 +156,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					e--;
 				} while((vm->pupo_is_data--) - 1);
 
-				e_value arr = e_create_array(vm, tmp_arr, arr_len);
+				e_value arr = e_create_array(vm, tmp_arr, arr_len, d_op);
 				if(arr.aval.alen == arr_len) {
 					e_stack_status_ret s = e_varstack_insert_global_at_index(vm->globals, arr, d_op);
 					vm->pupo_is_data = 0;
@@ -253,7 +252,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 					e--;
 				} while((vm->pupo_is_data--) - 1);
 
-				e_value arr = e_create_array(vm, tmp_arr, arr_len);
+				e_value arr = e_create_array(vm, tmp_arr, arr_len, d_op);
 				e_stack_status_ret s;
 
 				if(vm->cfcnt > 0) {
@@ -731,7 +730,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 				uint32_t ret_values = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op);
 				if(ret_values == 0) {
-					e_fail("Unknown function / subroutine");
+					char tmp[E_MAX_STRLEN];
+					snprintf(tmp, E_MAX_STRLEN, "Unknown function / subroutine %s", s1.val.sval.sval);
+					e_fail(tmp);
 					goto error;
 				} else {
 					// Discard all remaining stack values that are unwanted after the function call
@@ -750,49 +751,42 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 					// Return array?
 					uint32_t arr_len = ret_values - 1;
+					printf("stacn: %d\n", vm->stack.top);
 					if(arr_len > 1) {
-						e_value tmp_arr[E_MAX_ARRAYSIZE];
-						uint32_t e = arr_len - 1;
-						while((arr_len--) - 1) {
-							s1 = e_stack_pop(&vm->stack);
-							if(s1.status == E_STATUS_OK) {
-								tmp_arr[e] = s1.val;
-							} else goto error;
-							e--;
-						}
-
-						e_value arr = e_create_array(vm, tmp_arr, ret_values - 1);
-						if(arr.aval.alen == (ret_values - 1)) {
-							e_stack_status_ret s = e_stack_push(&vm->stack, arr);
-							if (s.status != E_STATUS_OK) goto error;
-						} else goto error;
+						vm->pupo_is_data = arr_len;
 					}
 				}
 			}
 			break;
 		case E_OP_PRINT:
-			if(vm->pupo_is_data) {
-				e_place_sarray_from_pupo_data(vm);
-				vm->pupo_is_data = 0;
-			}
 			e_builtin_print(vm, 1);
 			break;
 		case E_OP_ARGTYPE:
-			if(vm->pupo_is_data) {
-				e_place_sarray_from_pupo_data(vm);
-				vm->pupo_is_data = 0;
+			{
+				uint32_t r = e_builtin_argtype(vm, 1);
+				if(r == 0) {
+					e_fail("Builtin function ARGTYPE failed");
+					goto error;
+				}
 			}
-			e_builtin_argtype(vm, 1);
 			break;
 		case E_OP_LEN:
-			if(vm->pupo_is_data) {
-				e_place_sarray_from_pupo_data(vm);
-				vm->pupo_is_data = 0;
+			{
+				uint32_t r = e_builtin_len(vm, 1);
+				if(r == 0) {
+					e_fail("Builtin function LEN failed");
+					goto error;
+				}
 			}
-			e_builtin_len(vm, 1);
 			break;
 		case E_OP_ARRAY:
-			e_builtin_array(vm, 1);
+			{
+				uint32_t r = e_builtin_array(vm, 1);
+				if(r == 0) {
+					e_fail("Builtin function ARRAY failed");
+					goto error;
+				}
+			}
 			break;
 		default:
 			return E_VM_STATUS_ERROR;
@@ -801,28 +795,6 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 	return E_VM_STATUS_OK;
 	error:
 		return E_VM_STATUS_ERROR;
-}
-
-e_statusc
-e_place_sarray_from_pupo_data(e_vm* vm) {
-	if(vm->pupo_is_data) {
-		e_value tmp_arr[E_MAX_ARRAYSIZE];
-		uint32_t arr_len = vm->pupo_is_data;
-		uint32_t e = arr_len - 1;
-		do {
-			e_stack_status_ret s1 = e_stack_pop(&vm->stack);
-			if (s1.status == E_STATUS_OK) {
-				tmp_arr[e] = s1.val;
-			} else return s1.status;
-			e--;
-		} while ((vm->pupo_is_data--) - 1);
-
-		e_value arr = e_create_array(vm, tmp_arr, arr_len);
-		e_stack_status_ret s_push = e_stack_push(&vm->stack, arr);
-		return s_push.status;
-	}
-
-	return (e_statusc) { E_STATUS_NOINIT };
 }
 
 
@@ -974,34 +946,28 @@ e_create_string(const char* str) {
 }
 
 e_value
-e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen) {
+e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t index) {
 	if(vm->acnt + 1 >= E_MAX_ARRAYS) {
 		e_fail("Cannot initialize another array");
 		return (e_value) {0};
 	}
 
 	for(uint32_t i = 0; i < arrlen && i < E_MAX_ARRAYSIZE; i++) {
-		uint8_t s = e_array_append(vm, vm->acnt, arr[i]);
+		uint8_t s = e_array_append(vm, index, i, arr[i]);
 		if(!s) {
 			return (e_value) { 0 };
 		}
 	}
 
-	return (e_value) { .argtype = E_ARRAY, .aval.aptr = vm->acnt++, .aval.alen = arrlen };
+	return (e_value) { .argtype = E_ARRAY, .aval.aptr = index, .aval.alen = arrlen };
 }
 
 uint8_t
-e_array_append(e_vm* vm, uint32_t aptr, e_value v) {
+e_array_append(e_vm* vm, uint32_t aptr, uint32_t index, e_value v) {
 	if(aptr >= E_MAX_ARRAYS) return 0;
 
-	uint32_t e = 0;
-	while(vm->arrays[aptr][e].used) {
-		if(++e >= E_MAX_ARRAYSIZE) {
-			return 0;
-		}
-	}
-	vm->arrays[aptr][e].v = v;
-	vm->arrays[aptr][e].used = 1;
+	vm->arrays[aptr][index].v = v;
+	vm->arrays[aptr][index].used = 1;
 	return 1;
 }
 
@@ -1061,7 +1027,7 @@ e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen) {
 	for(uint32_t i = 0; i < E_MAX_EXTIDENTIFIERS; i++) {
 		if(strncmp(identifier, e_external_map[i].identifier, slen) == 0) {
 			// Call external function through fp
-			return 1 + e_external_map[i].fptr(vm, arglen);
+			return e_external_map[i].fptr(vm, arglen);
 		}
 	}
 

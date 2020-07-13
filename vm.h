@@ -7,20 +7,22 @@
 
 #include <stdint.h>
 
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
 // Never change E_INSTR_BYTES!
 #define    E_INSTR_BYTES           ((uint32_t)9)
 #define    E_INSTR_SINGLE_BYTES    ((uint32_t)1)
 
 // You may change these values (carefully!)
-#define E_STACK_SIZE        ((uint32_t)32)
-#define E_MAX_GLOBALS		((uint32_t)32)
-#define E_MAX_LOCALS		((uint32_t)16)
+#define E_STACK_SIZE        ((uint32_t)64)
+#define E_MAX_GLOBALS		((uint32_t)64)
+#define E_MAX_LOCALS		((uint32_t)64)
 #define E_OUT_DS_SIZE       ((int)5000)
 
-#define E_MAX_STRLEN    ((int)32)
-#define E_MAX_ARRAYSIZE ((int)64)
-#define E_MAX_ARRAYS    ((int)4)
-#define E_MAX_CALLFRAMES ((int)16)
+#define E_MAX_STRLEN    ((int)64)
+#define E_MAX_ARRAYSIZE ((int)16)
+#define E_MAX_ARRAYS    ((int)MAX(E_MAX_GLOBALS, E_MAX_LOCALS))
+#define E_MAX_CALLFRAMES ((int)32)
 
 // Defines external C-API linkage
 #define E_MAX_EXTIDENTIFIERS    ((int)16)
@@ -202,7 +204,7 @@ e_vm_status e_vm_parse_bytes(e_vm *vm, const uint8_t bytes[], uint32_t blen);
 e_vm_status e_vm_evaluate_instr(e_vm *vm, e_instr instr);
 e_value e_create_number(double n);
 e_value e_create_string(const char *str);
-e_value e_create_array(e_vm *vm, e_value *arr, uint32_t arrlen);
+e_value e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t index);
 
 // API
 e_stack_status_ret e_api_stack_push(e_stack *stack, e_value v);
