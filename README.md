@@ -58,13 +58,24 @@ uint32_t e_ext_my_external_func(e_vm* vm, uint32_t arglen) {
         if(a1.status == E_STATUS_OK && a1.val.argtype == E_NUMBER) {
             // Push a1 value * 2 onto stack
             e_api_stack_push(&vm->stack, e_create_number(a1.val.val * 2));
-            return 1;
+            return E_API_CALL_RETURN_OK(1); // 1 value is returned sucessfully
         }
     }
 
-    return 0;
+    return E_API_CALL_RETURN_ERROR; // the function failed
 }
 ```
+
+#### Return values from C functions / subs
+Use the following macros to return from a `C` API function:
+
+```c
+E_API_CALL_RETURN_OK(n)     // successfully returned n values
+E_API_CALL_RETURN_ERROR     // function failed
+```
+
+See the example above on how to use the macros.
+
 
 #### Stack popping and pushing
 To pop values from the stack, use the `e_api_stack_pop()` respectively `e_api_stack_push()` functions.
