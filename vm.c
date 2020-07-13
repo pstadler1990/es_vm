@@ -15,7 +15,7 @@ char dbg_s[E_MAX_STRLEN];
 
 #define E_USE_LOCK 0
 
-static uint8_t e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr, uint32_t global_local);
+static uint8_t e_find_value_in_arr(const e_vm* vm, e_value arr, uint32_t index, e_value* vptr);
 static uint8_t e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v, uint32_t global_local);
 static uint8_t e_array_append(e_vm* vm, uint32_t aptr, uint32_t index, e_value v, uint32_t global_local);
 
@@ -210,7 +210,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						/* Array access based on index */
 						if(vm->pupo_arr_index >= 0) {
 							e_value v;
-							if(e_find_value_in_arr(vm, s.val.aval.aptr, vm->pupo_arr_index, &v, E_ARRAY_GLOBAL)) {
+							if(e_find_value_in_arr(vm, s.val, vm->pupo_arr_index, &v)) {
 								e_stack_status_ret s_push = e_stack_push(&vm->stack, v);
 								if(s_push.status == E_STATUS_NESIZE) {
 									e_fail("Stack overflow");
@@ -330,7 +330,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 						/* Array access based on index */
 						if(vm->pupo_arr_index >= 0) {
 							e_value v;
-							if(e_find_value_in_arr(vm, s.val.aval.aptr, vm->pupo_arr_index, &v, E_ARRAY_LOCAL)) {
+							if(e_find_value_in_arr(vm, s.val, vm->pupo_arr_index, &v)) {
 								e_stack_status_ret s_push = e_stack_push(&vm->stack, v);
 								if(s_push.status == E_STATUS_NESIZE) {
 									e_fail("Stack overflow");
@@ -978,19 +978,17 @@ e_array_append(e_vm* vm, uint32_t aptr, uint32_t index, e_value v, uint32_t glob
 }
 
 uint8_t
-e_find_value_in_arr(const e_vm* vm, uint32_t aptr, uint32_t index, e_value* vptr, uint32_t global_local) {
-	if(global_local == E_ARRAY_GLOBAL) {
-		if(aptr >= E_MAX_GLOBALS) return 0;
+e_find_value_in_arr(const e_vm* vm, e_value arr, uint32_t index, e_value* vptr) {
+	if(arr.aval.global_local == E_ARRAY_GLOBAL) {
 		if(index >= E_MAX_ARRAYSIZE) return 0;
 
-		e_array_entry e = vm->arrays_global[aptr][index];
+		e_array_entry e = vm->arrays_global[arr.aval.aptr][index];
 		*vptr = e.v;
 		return e.used;
 	} else {
-		if(aptr >= E_MAX_LOCALS) return 0;
 		if(index >= E_MAX_ARRAYSIZE) return 0;
 
-		e_array_entry e = vm->arrays_local[aptr][index];
+		e_array_entry e = vm->arrays_local[arr.aval.aptr][index];
 		*vptr = e.v;
 		return e.used;
 	}
