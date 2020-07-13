@@ -7,7 +7,8 @@
 
 #include <stdint.h>
 
-#define MAX(a,b) (((a)>(b))?(a):(b))
+#define E_ARRAY_GLOBAL ((uint32_t)0)
+#define E_ARRAY_LOCAL ((uint32_t)1)
 
 // Never change E_INSTR_BYTES!
 #define    E_INSTR_BYTES           ((uint32_t)9)
@@ -15,14 +16,13 @@
 
 // You may change these values (carefully!)
 #define E_STACK_SIZE        ((uint32_t)64)
-#define E_MAX_GLOBALS		((uint32_t)64)
-#define E_MAX_LOCALS		((uint32_t)64)
+#define E_MAX_GLOBALS		((uint32_t)48)
+#define E_MAX_LOCALS		((uint32_t)16)
 #define E_OUT_DS_SIZE       ((int)5000)
 
 #define E_MAX_STRLEN    ((int)64)
 #define E_MAX_ARRAYSIZE ((int)16)
-#define E_MAX_ARRAYS    ((int)MAX(E_MAX_GLOBALS, E_MAX_LOCALS))
-#define E_MAX_CALLFRAMES ((int)32)
+#define E_MAX_CALLFRAMES ((int)16)
 
 // Defines external C-API linkage
 #define E_MAX_EXTIDENTIFIERS    ((int)16)
@@ -56,6 +56,7 @@ typedef struct {
 typedef struct {
 	uint32_t aptr;
 	uint32_t alen;
+	uint8_t global_local;
 } e_array_type;
 
 typedef struct {
@@ -107,8 +108,8 @@ typedef struct {
 
 	uint8_t pupo_is_data;
 	int32_t pupo_arr_index;
-	e_array_entry arrays[E_MAX_ARRAYS][E_MAX_ARRAYSIZE];
-	uint32_t acnt;
+	e_array_entry arrays_local[E_MAX_LOCALS][E_MAX_ARRAYSIZE];
+	e_array_entry arrays_global[E_MAX_GLOBALS][E_MAX_ARRAYSIZE];
 } e_vm;
 
 // External subroutines / functions
@@ -204,7 +205,7 @@ e_vm_status e_vm_parse_bytes(e_vm *vm, const uint8_t bytes[], uint32_t blen);
 e_vm_status e_vm_evaluate_instr(e_vm *vm, e_instr instr);
 e_value e_create_number(double n);
 e_value e_create_string(const char *str);
-e_value e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t index);
+e_value e_create_array(e_vm* vm, e_value* arr, uint32_t arrlen, uint32_t index, uint32_t global_local);
 
 // API
 e_stack_status_ret e_api_stack_push(e_stack *stack, e_value v);
