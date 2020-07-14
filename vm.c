@@ -89,7 +89,7 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 											(bytes[vm->ip + 3] << 8u) | bytes[vm->ip + 4]);
 				cur_instr.op2 = (uint32_t) ((bytes[vm->ip + 5] << 24u) | (bytes[vm->ip + 6] << 16u) |
 											(bytes[vm->ip + 7] << 8u) | bytes[vm->ip + 8]);
-				vm->ip++;
+				vm->ip += 9;
 
 				uint32_t ip_end = vm->ip;
 				if (ip_end - ip_begin != E_INSTR_BYTES) {
