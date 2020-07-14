@@ -121,7 +121,7 @@ typedef struct {
 
 // map["my_external_func"] = &my_func_ptr;
 // TODO: This should be replaced by a decent hash map!
-static e_external_mapping e_external_map[E_MAX_EXTIDENTIFIERS];
+e_external_mapping e_external_map[E_MAX_EXTIDENTIFIERS];
 
 // OPCODES
 typedef enum {

@@ -46,12 +46,12 @@ e_vm_init(e_vm* vm) {
 	vm->dscnt = 0;
 	for(uint32_t i = 0; i < E_MAX_LOCALS; i++) {
 		for(uint32_t e = 0; e < E_MAX_ARRAYSIZE; e++) {
-			vm->arrays_local[i][e] = (e_array_entry) { .v = { 0 }, .used = 0 };
+			vm->arrays_local[i][e] = (e_array_entry) { .v = {{ 0 }}, .used = 0 };
 		}
 	}
 	for(uint32_t i = 0; i < E_MAX_GLOBALS; i++) {
 		for(uint32_t e = 0; e < E_MAX_ARRAYSIZE; e++) {
-			vm->arrays_global[i][e] = (e_array_entry) { .v = { 0 }, .used = 0 };
+			vm->arrays_global[i][e] = (e_array_entry) { .v = {{ 0 }}, .used = 0 };
 		}
 	}
 	vm->cfcnt = 0;
@@ -85,10 +85,10 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 
 			cur_instr.OP = bytes[vm->ip];
 			if (!sb_ops[cur_instr.OP]) {
-				cur_instr.op1 = (uint32_t) ((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) |
-											(bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
-				cur_instr.op2 = (uint32_t) ((bytes[++vm->ip] << 24u) | (bytes[++vm->ip] << 16u) |
-											(bytes[++vm->ip] << 8u) | bytes[++vm->ip]);
+				cur_instr.op1 = (uint32_t) ((bytes[vm->ip + 1] << 24u) | (bytes[vm->ip + 2] << 16u) |
+											(bytes[vm->ip + 3] << 8u) | bytes[vm->ip + 4]);
+				cur_instr.op2 = (uint32_t) ((bytes[vm->ip + 5] << 24u) | (bytes[vm->ip + 6] << 16u) |
+											(bytes[vm->ip + 7] << 8u) | bytes[vm->ip + 8]);
 				vm->ip++;
 
 				uint32_t ip_end = vm->ip;
@@ -733,8 +733,8 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 				uint32_t ret_values = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op);
 				if(ret_values == 0) {
-					char tmp[E_MAX_STRLEN];
-					snprintf(tmp, E_MAX_STRLEN, "Unknown function / subroutine %s", s1.val.sval.sval);
+					char tmp[E_MAX_STRLEN + 30];
+					snprintf(tmp, E_MAX_STRLEN + 30, "Unknown function / subroutine %s", s1.val.sval.sval);
 					e_fail(tmp);
 					goto error;
 				} else {
