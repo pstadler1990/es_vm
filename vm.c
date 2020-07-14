@@ -701,7 +701,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 		case E_OP_JMPFUN:
 			// Create CallFrame
 			{
-				e_callframe callframe;
+				e_callframe callframe = { 0 };
 				s1 = e_stack_pop(&vm->stack);
 				if(s1.status == E_STATUS_OK) {
 					callframe.retAddr = s1.val.val;
