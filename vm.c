@@ -392,11 +392,9 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			{
 				char tmp_str[E_MAX_STRLEN];
 				if(d_op < E_MAX_STRLEN - 1) {
-					// Strlen (uint32_t)d_op
 					for(uint32_t i = 0; i < d_op && i < E_MAX_STRLEN; i++) {
-						tmp_str[i] = e_read_byte(vm->ds_offset + vm->ip);
+						tmp_str[i] = e_read_byte(vm->ds_offset + vm->ip + i);
 					}
-					//memcpy(tmp_str, &vm->ds[vm->ip], (uint32_t)d_op);
 					tmp_str[(uint32_t)d_op] = 0;
 					e_stack_status_ret s_push = e_stack_push(&vm->stack, e_create_string(tmp_str));
 					if(s_push.status == E_STATUS_NESIZE) {
