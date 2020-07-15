@@ -45,7 +45,7 @@ e_vm_init(e_vm* vm) {
 	e_varstack_init(vm->locals, E_MAX_LOCALS);
 	vm->pupo_is_data = 0;
 	vm->pupo_arr_index = -1;
-	vm->dscnt = 0;
+	vm->ds_offset = 0;
 	for(uint32_t i = 0; i < E_MAX_LOCALS; i++) {
 		for(uint32_t e = 0; e < E_MAX_ARRAYSIZE; e++) {
 			vm->arrays_local[i][e] = (e_array_entry) { .v = {{ 0 }}, .used = 0 };
@@ -60,17 +60,21 @@ e_vm_init(e_vm* vm) {
 	vm->status = E_VM_STATUS_READY;
 }
 
-e_vm_status
-e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
-	if(blen == 0) return E_VM_STATUS_EOF;
+void
+e_vm_register_read_function(e_vm* vm, uint8_t (*read_byte_func)(uint32_t offset)) {
+	if(!vm) return;
+	vm->read_byte = read_byte_func;
+}
 
-	// Copy data segment
-	if(blen > E_OUT_DS_SIZE) {
-		e_fail("Not enough space");
+e_vm_status
+e_vm_parse_bytes(e_vm* vm, uint32_t script_offset, uint32_t blen) {
+	if(blen == 0) return E_VM_STATUS_EOF;
+	if(vm->read_byte == NULL) {
+		e_fail("You must register a function pointer for the read_byte function! Use e_vm_register_read_function()");
 		return E_VM_STATUS_ERROR;
 	}
-	memcpy(&vm->ds, bytes, blen);
-	vm->dscnt = blen;
+
+	vm->ds_offset = script_offset;
 
 	do {
 #if E_DEBUG
@@ -84,13 +88,23 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 #endif
 			e_instr cur_instr;
 			uint32_t ip_begin = vm->ip;
+			uint8_t next_bytes[E_INSTR_BYTES - 1] = { 0 };
 
-			cur_instr.OP = bytes[vm->ip];
+			cur_instr.OP = vm->read_byte(vm->ds_offset + vm->ip);
 			if (!sb_ops[cur_instr.OP]) {
-				cur_instr.op1 = (uint32_t) ((bytes[vm->ip + 1] << 24u) | (bytes[vm->ip + 2] << 16u) |
-											(bytes[vm->ip + 3] << 8u) | bytes[vm->ip + 4]);
-				cur_instr.op2 = (uint32_t) ((bytes[vm->ip + 5] << 24u) | (bytes[vm->ip + 6] << 16u) |
-											(bytes[vm->ip + 7] << 8u) | bytes[vm->ip + 8]);
+				next_bytes[0] = vm->read_byte(vm->ds_offset + vm->ip + 1);
+				next_bytes[1] = vm->read_byte(vm->ds_offset + vm->ip + 2);
+				next_bytes[2] = vm->read_byte(vm->ds_offset + vm->ip + 3);
+				next_bytes[3] = vm->read_byte(vm->ds_offset + vm->ip + 4);
+				next_bytes[4] = vm->read_byte(vm->ds_offset + vm->ip + 5);
+				next_bytes[5] = vm->read_byte(vm->ds_offset + vm->ip + 6);
+				next_bytes[6] = vm->read_byte(vm->ds_offset + vm->ip + 7);
+				next_bytes[7] = vm->read_byte(vm->ds_offset + vm->ip + 8);
+
+				cur_instr.op1 = (uint32_t) ((next_bytes[0] << 24u) | (next_bytes[1] << 16u) |
+											(next_bytes[2] << 8u) | next_bytes[3]);
+				cur_instr.op2 = (uint32_t) ((next_bytes[4] << 24u) | (next_bytes[5] << 16u) |
+											(next_bytes[6] << 8u) | next_bytes[7]);
 				vm->ip += 9;
 
 				uint32_t ip_end = vm->ip;
@@ -124,7 +138,7 @@ e_vm_parse_bytes(e_vm* vm, const uint8_t bytes[], uint32_t blen) {
 #if E_USE_LOCK
 	}
 #endif
-	while (vm->ip < blen /*&& vm->ip <= E_OUT_SIZE*/);
+	while (vm->ip < blen);
 
 	return E_VM_STATUS_OK;
 }
@@ -388,7 +402,11 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 			{
 				char tmp_str[E_MAX_STRLEN];
 				if(d_op < E_MAX_STRLEN - 1) {
-					memcpy(tmp_str, &vm->ds[vm->ip], (uint32_t)d_op);
+					// Strlen (uint32_t)d_op
+					for(uint32_t i = 0; i < d_op && i < E_MAX_STRLEN; i++) {
+						tmp_str[i] = vm->read_byte(vm->ds_offset + vm->ip);
+					}
+					//memcpy(tmp_str, &vm->ds[vm->ip], (uint32_t)d_op);
 					tmp_str[(uint32_t)d_op] = 0;
 					e_stack_status_ret s_push = e_stack_push(&vm->stack, e_create_string(tmp_str));
 					if(s_push.status == E_STATUS_NESIZE) {

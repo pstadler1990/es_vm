@@ -18,7 +18,6 @@
 #define E_STACK_SIZE        ((uint32_t)64)
 #define E_MAX_GLOBALS		((uint32_t)48)
 #define E_MAX_LOCALS		((uint32_t)16)
-#define E_OUT_DS_SIZE       ((int)5000)
 
 #define E_MAX_STRLEN    ((int)64)
 #define E_MAX_ARRAYSIZE ((int)16)
@@ -103,8 +102,8 @@ typedef struct {
 	uint32_t cfcnt;
 	e_vm_status status;
 
-	uint8_t ds[E_OUT_DS_SIZE];
-	uint32_t dscnt;
+	uint8_t (*read_byte)(uint32_t offset);
+	uint32_t ds_offset;
 
 	uint8_t pupo_is_data;
 	int32_t pupo_arr_index;
@@ -199,7 +198,8 @@ typedef struct {
 
 // VM
 void e_vm_init(e_vm *vm);
-e_vm_status e_vm_parse_bytes(e_vm *vm, const uint8_t bytes[], uint32_t blen);
+void e_vm_register_read_function(e_vm* vm, uint8_t (*read_byte_func)(uint32_t offset));
+e_vm_status e_vm_parse_bytes(e_vm* vm, uint32_t offset, uint32_t blen);
 e_vm_status e_vm_evaluate_instr(e_vm *vm, e_instr instr);
 e_value e_create_number(double n);
 e_value e_create_string(const char *str);
