@@ -12,7 +12,7 @@ e_vm_init(&context);
 ```
 
 ### Byte read function
-Use the `void e_vm_register_read_function(..)` function to register your callback implementation for the byte acquirement. 
+Implement the `e_read_byte(..)` function as the callback implementation for the byte acquirement. 
 This provided function is called whenever the next byte is required by the virtual machine, reading from a specific `offset`.
 
 **Important** You need to specify this function, otherwise you cannot use the virtual machine!
