@@ -102,7 +102,6 @@ typedef struct {
 	uint32_t cfcnt;
 	e_vm_status status;
 
-	uint8_t (*read_byte)(uint32_t offset);
 	uint32_t ds_offset;
 
 	uint8_t pupo_is_data;
@@ -198,7 +197,6 @@ typedef struct {
 
 // VM
 void e_vm_init(e_vm *vm);
-void e_vm_register_read_function(e_vm* vm, uint8_t (*read_byte_func)(uint32_t offset));
 e_vm_status e_vm_parse_bytes(e_vm* vm, uint32_t offset, uint32_t blen);
 e_vm_status e_vm_evaluate_instr(e_vm *vm, e_instr instr);
 e_value e_create_number(double n);

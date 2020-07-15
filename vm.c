@@ -60,19 +60,9 @@ e_vm_init(e_vm* vm) {
 	vm->status = E_VM_STATUS_READY;
 }
 
-void
-e_vm_register_read_function(e_vm* vm, uint8_t (*read_byte_func)(uint32_t offset)) {
-	if(!vm) return;
-	vm->read_byte = read_byte_func;
-}
-
 e_vm_status
 e_vm_parse_bytes(e_vm* vm, uint32_t script_offset, uint32_t blen) {
 	if(blen == 0) return E_VM_STATUS_EOF;
-	if(vm->read_byte == NULL) {
-		e_fail("You must register a function pointer for the read_byte function! Use e_vm_register_read_function()");
-		return E_VM_STATUS_ERROR;
-	}
 
 	vm->ds_offset = script_offset;
 
@@ -90,16 +80,16 @@ e_vm_parse_bytes(e_vm* vm, uint32_t script_offset, uint32_t blen) {
 			uint32_t ip_begin = vm->ip;
 			uint8_t next_bytes[E_INSTR_BYTES - 1] = { 0 };
 
-			cur_instr.OP = vm->read_byte(vm->ds_offset + vm->ip);
+			cur_instr.OP = e_read_byte(vm->ds_offset + vm->ip);
 			if (!sb_ops[cur_instr.OP]) {
-				next_bytes[0] = vm->read_byte(vm->ds_offset + vm->ip + 1);
-				next_bytes[1] = vm->read_byte(vm->ds_offset + vm->ip + 2);
-				next_bytes[2] = vm->read_byte(vm->ds_offset + vm->ip + 3);
-				next_bytes[3] = vm->read_byte(vm->ds_offset + vm->ip + 4);
-				next_bytes[4] = vm->read_byte(vm->ds_offset + vm->ip + 5);
-				next_bytes[5] = vm->read_byte(vm->ds_offset + vm->ip + 6);
-				next_bytes[6] = vm->read_byte(vm->ds_offset + vm->ip + 7);
-				next_bytes[7] = vm->read_byte(vm->ds_offset + vm->ip + 8);
+				next_bytes[0] = e_read_byte(vm->ds_offset + vm->ip + 1);
+				next_bytes[1] = e_read_byte(vm->ds_offset + vm->ip + 2);
+				next_bytes[2] = e_read_byte(vm->ds_offset + vm->ip + 3);
+				next_bytes[3] = e_read_byte(vm->ds_offset + vm->ip + 4);
+				next_bytes[4] = e_read_byte(vm->ds_offset + vm->ip + 5);
+				next_bytes[5] = e_read_byte(vm->ds_offset + vm->ip + 6);
+				next_bytes[6] = e_read_byte(vm->ds_offset + vm->ip + 7);
+				next_bytes[7] = e_read_byte(vm->ds_offset + vm->ip + 8);
 
 				cur_instr.op1 = (uint32_t) ((next_bytes[0] << 24u) | (next_bytes[1] << 16u) |
 											(next_bytes[2] << 8u) | next_bytes[3]);
@@ -404,7 +394,7 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 				if(d_op < E_MAX_STRLEN - 1) {
 					// Strlen (uint32_t)d_op
 					for(uint32_t i = 0; i < d_op && i < E_MAX_STRLEN; i++) {
-						tmp_str[i] = vm->read_byte(vm->ds_offset + vm->ip);
+						tmp_str[i] = e_read_byte(vm->ds_offset + vm->ip);
 					}
 					//memcpy(tmp_str, &vm->ds[vm->ip], (uint32_t)d_op);
 					tmp_str[(uint32_t)d_op] = 0;
