@@ -15,6 +15,8 @@ char dbg_s[E_MAX_STRLEN];
 
 #define E_USE_LOCK 0
 
+e_external_mapping e_external_map[E_MAX_EXTIDENTIFIERS];
+
 static uint8_t e_find_value_in_arr(const e_vm* vm, e_value arr, uint32_t index, e_value* vptr);
 static uint8_t e_change_value_in_arr(e_vm* vm, uint32_t aptr, uint32_t index, e_value v, uint32_t global_local);
 static uint8_t e_array_append(e_vm* vm, uint32_t aptr, uint32_t index, e_value v, uint32_t global_local);
