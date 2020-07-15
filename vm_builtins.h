@@ -18,6 +18,7 @@ uint32_t e_builtin_sort(e_vm* vm, uint32_t arglen);
 uint32_t e_builtin_array(e_vm* vm, uint32_t arglen);
 
 // User implemented callbacks
+uint8_t e_read_byte(uint32_t offset);
 void e_fail(const char* msg);
 void e_print(const char* msg);
 uint8_t e_check_locked(void);

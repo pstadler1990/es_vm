@@ -122,7 +122,12 @@ uint32_t e_builtin_array(e_vm* vm, uint32_t arglen) {
 	return 0;
 }
 
-#if 1
+#if 0
+uint8_t e_read_byte(uint32_t offset) {
+	// TODO: Return byte at >offset<
+	return 0;
+}
+
 void e_print(const char* msg) {
 	printf("%s\n", msg);
 }
