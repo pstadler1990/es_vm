@@ -11,16 +11,21 @@ e_vm context;
 e_vm_init(&context);
 ```
 
+### Byte read function
+Use the `void e_vm_register_read_function(..)` function to register your callback implementation for the byte acquirement. 
+This provided function is called whenever the next byte is required by the virtual machine, reading from a specific `offset`.
+
+**Important** You need to specify this function, otherwise you cannot use the virtual machine!
+
+### Starting the interpreter with byte code
+
 To start the byte interpreter, use the `e_vm_parse_bytes(..)` function:
 
 ```c
-uint8_t bytes_in[BUF_SIZE];
-...
-bytes_in = {..};
-...
-
-e_vm_parse_bytes(&context, bytes_in, BUF_SIZE);
+e_vm_parse_bytes(&context, /*script_offset*/, /* number of bytes */);
 ```
+
+You can provide a `script_offset` which is automatically added to the internal byte offset, i.e. to access a different memory area. If not needed, just leave it `0`.
 
 ## Function / Subroutine binding
 To call `C` functions / routines from within the `evoscript` scripting environment, 
