@@ -738,14 +738,19 @@ e_vm_evaluate_instr(e_vm* vm, e_instr instr) {
 
 			if(s1.status == E_STATUS_OK && s1.val.argtype == E_STRING) {
 				uint32_t argsbefore = vm->stack.top;
-
-				uint32_t ret_values = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op);
-				if(ret_values == 0) {
+				int32_t tmp_stat = e_api_call_sub(vm, (const char*)s1.val.sval.sval, d_op);
+				if(tmp_stat == -1) {
 					char tmp[E_MAX_STRLEN + 30];
 					snprintf(tmp, E_MAX_STRLEN + 30, "Unknown function / subroutine %s", s1.val.sval.sval);
 					e_fail(tmp);
 					goto error;
+				} else if(tmp_stat == 0) {
+					char tmp[E_MAX_STRLEN + 30];
+					snprintf(tmp, E_MAX_STRLEN + 30, "Error in external function %s", s1.val.sval.sval);
+					e_fail(tmp);
+					goto error;
 				} else {
+					uint32_t ret_values = (uint32_t)tmp_stat;
 					// Discard all remaining stack values that are unwanted after the function call
 					uint32_t A = argsbefore - d_op;	// allowed remaining
 					uint32_t argsafter = vm->stack.top;
@@ -1052,7 +1057,7 @@ e_api_register_sub(const char* identifier, uint32_t (*fptr)(e_vm*, uint32_t)) {
 	e_fail("Cannot register another subroutine");
 }
 
-uint8_t
+int32_t
 e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen) {
 	uint32_t slen = strlen(identifier);
 	if(slen > E_MAX_EXTIDENTIFIERS_STRLEN) return 0;
@@ -1064,5 +1069,5 @@ e_api_call_sub(e_vm* vm, const char* identifier, uint32_t arglen) {
 		}
 	}
 
-	return 0;
+	return -1;
 }
